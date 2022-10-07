@@ -15,4 +15,6 @@
     <string name="Paragraph2">\tThe way energy is being produced in the world is changing quickly from non-renewable energy sources, such as gas and coal, to more sustainable sources, such as solar or wind energy.
     As a natural consequence, systems that channel harness renewable energy are receiving more attention and refining. A helio stat mirror control system is the system this project intends to improve. The focus for this project is to obtain a smaller helio stat, which sustains more localized used in suburban areas, while reducing the load required from the electric power grid</string>
     <string name="RevHist_1">Updated 9/28/2022</string>
+    <string name="Reading">Sensor Reading:</string>
+    <string name="Date">Date/Time:</string>
 </resources>

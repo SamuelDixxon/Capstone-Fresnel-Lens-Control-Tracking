@@ -72,8 +72,8 @@
 
     <Button
         android:id="@+id/B1"
-        android:layout_width="379dp"
-        android:layout_height="63dp"
+        android:layout_width="382dp"
+        android:layout_height="66dp"
         android:layout_below="@+id/imageView"
         android:layout_alignParentEnd="true"
         android:layout_centerHorizontal="true"

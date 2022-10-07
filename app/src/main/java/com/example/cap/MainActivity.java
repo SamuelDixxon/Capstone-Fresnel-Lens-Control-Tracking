@@ -5,7 +5,6 @@ import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -17,16 +16,20 @@ public class MainActivity extends AppCompatActivity {
         Button button_info = findViewById(R.id.B2);
         button_info.setOnClickListener((view -> openInfo()));
 
-    }
+        Button button_controls = findViewById(R.id.B3);
+        button_controls.setOnClickListener((view -> openControls()));
 
+    }
     public void openAnalytics() {
         Intent intent = new Intent(this, Analytics.class);
         startActivity(intent);
     }
-
     public void openInfo() {
         Intent intent2 = new Intent(this, ApplicationInformation.class);
         startActivity(intent2);
     }
-
+    public void openControls() {
+        Intent intent3 = new Intent(this, ManualControls.class);
+        startActivity(intent3);
+    }
 }

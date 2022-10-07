@@ -8,19 +8,6 @@
     tools:context=".Analytics">
 
     <TextView
-        android:id="@+id/SR2"
-        android:layout_width="181dp"
-        android:layout_height="71dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginTop="94dp"
-        android:layout_marginEnd="12dp"
-        android:textAlignment="viewStart"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        tools:ignore="TextContrastCheck" />
-
-    <TextView
         android:id="@+id/location"
         android:layout_width="211dp"
         android:layout_height="42dp"
@@ -48,21 +35,6 @@
         app:cornerRadius="20dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="TextContrastCheck" />
-
-    <TextView
-        android:id="@+id/SR"
-        android:layout_width="173dp"
-        android:layout_height="72dp"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginStart="11dp"
-        android:layout_marginTop="94dp"
-        android:layout_marginEnd="34dp"
-        android:layout_toStartOf="@+id/SR2"
-        android:textAlignment="viewStart"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
         tools:ignore="TextContrastCheck" />
 
 </RelativeLayout>

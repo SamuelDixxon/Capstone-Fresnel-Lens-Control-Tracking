@@ -1,0 +1,29 @@
+{
+  "Flags": {
+    "Down": 0,
+    "Left": 0,
+    "Right": 0,
+    "Stop": 0,
+    "Up": 0
+  },
+  "Sensors": {
+    "Magnetometer1": {
+      "reading": {
+        "data": 5.5,
+        "timestamp": "xxxxx"
+      }
+    },
+    "Magnetometer2": {
+      "reading": {
+        "data": 92.1,
+        "timestamp": "xxxxx"
+      }
+    },
+    "PhotoDiode": {
+      "reading": {
+        "data": 1.1,
+        "timestamp": "xxxxx"
+      }
+    }
+  }
+}

@@ -1,1 +1,1 @@
-This is a project folder for capstone project and all the scripts it entails to use. 
+Repository for ECEN 403/404 Texas A&M Senior design project.

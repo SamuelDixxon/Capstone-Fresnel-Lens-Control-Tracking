@@ -1,1 +1,1 @@
-Repository for ECEN 403/404 Texas A&M Senior design project.
+Repository for ECEN 403/404 Texas A&M Senior design project representing team 66.

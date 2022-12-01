@@ -1,0 +1,32 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+
+<body>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-auth-compat.js"></script>
+
+    <script type="module">
+        import apprun from './index.js';
+        window.apprun = apprun;
+    </script>
+    <script>
+        window.onload = () => {
+            apprun();
+        }
+    </script>
+
+    <center>
+        <h1>Heliostat Controls Web Data</h1>
+        <div id="table_div"></div>
+    </center>
+
+</body>
+
+
+</html>

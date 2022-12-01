@@ -4,19 +4,19 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF5722"
+    android:background="#000000"
     tools:context=".Analytics">
 
     <TextView
         android:id="@+id/SR2"
         android:layout_width="181dp"
-        android:layout_height="71dp"
+        android:layout_height="300dp"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
         android:layout_marginTop="94dp"
         android:layout_marginEnd="12dp"
-        android:textAlignment="viewStart"
-        android:textColor="#FFFFFF"
+        android:textAlignment="center"
+        android:textColor="#EF785B"
         android:textSize="14sp"
         tools:ignore="TextContrastCheck" />
 
@@ -29,7 +29,7 @@
         android:layout_marginStart="100dp"
         android:layout_marginEnd="100dp"
         android:layout_marginBottom="21dp"
-        android:textColor="#FFFFFF"
+        android:textColor="#EF785B"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -41,9 +41,9 @@
         android:layout_alignParentTop="true"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:backgroundTint="#FF9800"
+        android:backgroundTint="#F13709"
         android:text="@string/Button4"
-        android:textColor="#FFFFFF"
+        android:textColor="#EF785B"
         android:textColorHint="#FFFFFF"
         app:cornerRadius="20dp"
         app:layout_constraintStart_toStartOf="parent"
@@ -53,16 +53,17 @@
     <TextView
         android:id="@+id/SR"
         android:layout_width="173dp"
-        android:layout_height="72dp"
+        android:layout_height="300dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_marginStart="11dp"
         android:layout_marginTop="94dp"
         android:layout_marginEnd="34dp"
         android:layout_toStartOf="@+id/SR2"
-        android:textAlignment="viewStart"
-        android:textColor="#FFFFFF"
+        android:textAlignment="center"
+        android:textColor="#EF785B"
         android:textSize="14sp"
         tools:ignore="TextContrastCheck" />
+
 
 </RelativeLayout>

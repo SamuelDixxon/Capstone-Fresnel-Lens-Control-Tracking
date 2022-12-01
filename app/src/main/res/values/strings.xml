@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">CapstoneApp</string>
-    <string name="Title">Heliostat Tracking Controls Data Visualization</string>
+    <string name="Title">Heliostat Tracking Controls\nUser Interface</string>
     <string name="Button1">System Metrics</string>
     <string name="Button2">Application Information</string>
     <string name="Button3">Manual Controls</string>
@@ -10,11 +10,22 @@
     <string name="Title2">Purpose</string>
     <string name="Title3">System Improvements</string>
     <string name="Paragraph1">\tThe Purpose of this app is to provide system metrics and data visualization for our senior capstone project involving a tracking control system for a lightweight helio stat mirror system in real time.
-        This is done by transmitting sensor data received by an Arduino Mega via bluetooth to the android device, storing the data into a web database, and giving the option to query historical data.
+        This is done by transmitting sensor data received by an ESP32 Wroom via internet to the android device, storing the data into a web database, and giving the option to query historical data.
     </string>
     <string name="Paragraph2">\tThe way energy is being produced in the world is changing quickly from non-renewable energy sources, such as gas and coal, to more sustainable sources, such as solar or wind energy.
     As a natural consequence, systems that channel harness renewable energy are receiving more attention and refining. A helio stat mirror control system is the system this project intends to improve. The focus for this project is to obtain a smaller helio stat, which sustains more localized used in suburban areas, while reducing the load required from the electric power grid</string>
-    <string name="RevHist_1">Updated 9/28/2022</string>
+    <string name="RevHist_1">Updated 11/17/2022</string>
     <string name="Reading">Sensor Reading:</string>
     <string name="Date">Date/Time:</string>
+    <string name="c1">Left</string>
+    <string name="c2">Right</string>
+    <string name="c3">Up</string>
+    <string name="c4">Down</string>
+    <string name="c5">Stop</string>
+    <string name="c6">Connect to Device</string>
+    <string name="Status1">Not Connected</string>
+    <string name="Status2">Connected</string>
+    <string name="Status3">Disconnect</string>
+    <string name="Status4">Connect</string>
+
 </resources>

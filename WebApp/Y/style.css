@@ -1,3 +1,73 @@
 .google-visualization-table-td {
     text-align: center !important;
+    margin: auto;
+    align-items: center;
+}
+
+.btn-group button {
+    background-color: #e57905;
+    /* Green background */
+    border: 1px solid rgb(128, 9, 0);
+    /* Green border */
+    color: white;
+    /* White text */
+    padding: 10px 24px;
+    /* Some padding */
+    cursor: pointer;
+    /* Pointer/hand icon */
+    float: left;
+    /* Float the buttons side by side */
+}
+
+.btn-group button:not(:last-child) {
+    border-right: none;
+    /* Prevent double borders */
+}
+
+/* Clear floats (clearfix hack) */
+.btn-group:after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+/* Add a background color on hover */
+.btn-group button:hover {
+    background-color: #c37c10;
+}
+
+
+.columns {
+    max-width: 100%;
+}
+
+body {
+    background: #e4a35e;
+}
+
+h1 {
+    color: white;
+    background: #e57905;
+    border: 1px solid rgb(128, 9, 0);
+}
+
+
+#string_filter_div {
+    display: flex;
+    justify-content: center;
+}
+
+#numnber_range_filter_div {
+    display: flex;
+    justify-content: center;
+}
+
+#table_div {
+    display: flex;
+    justify-content: center;
+}
+
+#tbl {
+    display: flex;
+    justify-content: center;
 }

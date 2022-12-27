@@ -1,7 +1,8 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
 
-export default function apprun() {
+export default function get_table() {
 
     // Import the functions you need from the SDKs you need
     // TODO: Add SDKs for Firebase products that you want to use
@@ -23,7 +24,6 @@ export default function apprun() {
 
     const db = getDatabase(firebaseApp); // get the reference to the firebase
     const sensors = ref(db, "/Sensors/");
-
 
     onValue(sensors, (snapshot) => { // creating onValue to  reference the parent nodes of the sensors
         var x = [];
@@ -65,10 +65,49 @@ export default function apprun() {
 
         // set OnLoadCallback method is to draw the table once the new data is acquired
 
-        google.charts.setOnLoadCallback(() => drawTable(x)); // setting on callloadback method to update table with new data
+        //google.charts.setOnLoadCallback(() => drawTable(x)); // setting on callloadback method to update table with new data NoSQL version
+
+        // const Http = new XMLHttpRequest();
+        // const url = 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123';
+        // Http.open("GET", url);
+        // Http.send();
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+        xhr.responseType = 'json';
 
 
+        xhr.send();
+
+        var data = [];
+        xhr.onreadystatechange = (e) => {
+            var jsondat = xhr.response;
+            //console.log(jsondat);
+            if (jsondat != null) {
+                if (Object.keys(jsondat).length > 0) {
+                    Object.keys(jsondat).forEach(function (key) {
+                        var jsondatnest = jsondat[key];
+                        var row = [];
+                        Object.keys(jsondatnest).forEach(function (key1) {
+                            row.push(jsondatnest[key1]);
+                        });
+                        data.push(row);
+                    });
+                };
+                //console.log(data);
+                google.charts.setOnLoadCallback(() => drawTableSQL(data));
+            } else {
+                //console.log("Null contents");
+            }
+        };
     });
+};
+
+
+export function get_chart() {
+
+    // console.log(data);
+    // google.charts.setOnLoadCallback(() => drawTableSQL(data));
 
     const mag1 = ref(db, "/Sensors/Magnetometer1"); // getting reference to mag1
 
@@ -78,22 +117,65 @@ export default function apprun() {
             var toAppend = [c1.val()["timestamp"], c1.val()["reading"]]; // getting (x,y) coordinate for line graph
             y.push(toAppend); // appending row to data in order to write to table
         });
-        console.log(y);
-        google.charts.setOnLoadCallback(() => drawChart1(y)); // setting on callloadback method to update table with new data
+        google.charts.setOnLoadCallback(() => drawChart1_noSQL(y)); // setting on callloadback method to update table with new data
     });
-
 
 };
 
-//google.load('visualization', '1', { packages: ['controls'], callback: drawChart1 });
-google.load('visualization', '1', { packages: ['controls'], callback: drawChart1 });
+
+
+
+//google.load('visualization', '1', {packages: ['controls'], callback: drawChart1 });
+google.load('visualization', '1', { packages: ['controls'] });
 google.charts.load('current', { 'packages': ['corechart'] });
 
+export function drawTableSQL(data1) {
 
-function drawTable(data1) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'Sensor');
+    data.addColumn('number', 'Reading');
+    data.addColumn('number', 'Timestamp');
+    data.addRows(data1);
+
+    var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+
+    var stringFilter = new google.visualization.ControlWrapper({
+        controlType: 'StringFilter',
+        containerId: 'string_filter_div',
+        options: {
+            filterColumnIndex: 0
+        }
+    });
+
+    var numberRangeFilter = new google.visualization.ControlWrapper({
+        controlType: 'NumberRangeFilter',
+        containerId: 'numnber_range_filter_div',
+        options: {
+            filterColumnIndex: 2,
+            minValue: 0,
+            maxValue: 1000,
+            ui: {
+                label: 'Timestamp'
+            }
+        }
+    });
+
+    var table = new google.visualization.ChartWrapper({
+        chartType: 'Table',
+        containerId: 'table_div',
+        options: {
+            showRowNumber: true
+        }
+    });
+
+    dashboard.bind([stringFilter, numberRangeFilter], [table]);
+    dashboard.draw(data);
+
+};
+
+function drawTable_noSQL(data1) {
     if (Array.isArray(data1)) {
         if (data1.length != 0) {
-
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Sensor');
             data.addColumn('number', 'Reading');
@@ -147,17 +229,11 @@ function drawTable(data1) {
     } else {
         console.log("Not an array, please pass data as an array!");
     }
-
 };
 
-
-// loading google packages for drawing charts
-// google.charts.setOnLoadCallback(drawChart2);
-
-function drawChart1(d) {
+function drawChart1_noSQL(d) {
     if (Array.isArray(d)) {
         if (d.length > 1) {
-            console.log(d);
             var data = google.visualization.arrayToDataTable(d);
             var options = {
                 title: 'Sensor Value Reading vs. Time',
@@ -170,9 +246,9 @@ function drawChart1(d) {
             chart.draw(data, options);
         }
     }
-}
+};
 
-function drawChart2() {
+function drawChart2_noSQL() {
     var data = google.visualization.arrayToDataTable([
         ['Time', 'Sensor'],
         [8, 12],
@@ -193,4 +269,32 @@ function drawChart2() {
     var chart = new google.visualization.ScatterChart(document.getElementById('chart_div_2'));
 
     chart.draw(data, options);
+};
+
+function load_table() {
+    google.load('visualization', '1', { packages: ['controls'] });
+    google.charts.load('current', { 'packages': ['corechart'] });
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+    xhr.responseType = 'json';
+    xhr.send();
+    var data = [];
+    xhr.onreadystatechange = (e) => {
+        var jsondat = xhr.response;
+        if (jsondat != null) {
+            if (Object.keys(jsondat).length > 0) {
+                Object.keys(jsondat).forEach(function (key) {
+                    var jsondatnest = jsondat[key];
+                    var row = [];
+                    Object.keys(jsondatnest).forEach(function (key1) {
+                        row.push(jsondatnest[key1]);
+                    });
+                    data.push(row);
+                });
+            };
+            google.charts.setOnLoadCallback(() => drawTableSQL(data));
+        } else {
+            console.log("Null contents");
+        }
+    };
 };

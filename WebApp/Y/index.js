@@ -263,7 +263,9 @@ function drawChart2_noSQL() {
         title: 'Sensor Value Reading vs. Timestamp',
         hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
         vAxis: { title: 'Sensor Value Reading', minValue: 0, maxValue: 15 },
-        legend: 'none'
+        legend: 'none',
+        width: 500,
+        height: 500
     };
 
     var chart = new google.visualization.ScatterChart(document.getElementById('chart_div_2'));
@@ -298,3 +300,201 @@ function load_table() {
         }
     };
 };
+
+function build_table() {
+
+                var b1 = document.getElementById('b1').value;
+                var b2 = document.getElementById('b2').value;
+                var b3 = document.getElementById('b3').value;
+                var b4 = document.getElementById('b4').value;
+
+                if (b1 == "off" & b4 == "off") {
+
+                    if (b2 == "on") {
+                        var table = document.getElementById('tbl');
+                        //table.replaceChildren();
+                        table.remove();
+                        document.getElementById('b2').value = 'off';
+                    }
+
+                    if (b3 == "on") {
+                        var box = document.getElementById('box');
+                        box.remove();
+                        document.getElementById('b3').value = 'off';
+                    }
+
+                    google.load('visualization', '1.1', { packages: ['controls'] });
+                    google.charts.load('current', { 'packages': ['corechart'] });
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+                    xhr.responseType = 'json';
+                    xhr.send();
+                    var rows = [];
+                    xhr.onreadystatechange = (e) => {
+
+                        var jsondat = xhr.response;
+                        if (jsondat != null) {
+                            if (Object.keys(jsondat).length > 0) {
+                                Object.keys(jsondat).forEach(function (key) {
+                                    var jsondatnest = jsondat[key];
+                                    var row = [];
+                                    Object.keys(jsondatnest).forEach(function (key1) {
+                                        row.push(jsondatnest[key1]);
+                                    });
+                                    rows.push(row);
+                                });
+                            };
+
+                            var data = new google.visualization.DataTable();
+                            data.addColumn('string', 'Sensor');
+                            data.addColumn('number', 'Reading');
+                            data.addColumn('number', 'Timestamp');
+                            data.addRows(rows);
+
+
+                            var string_filter = document.createElement('div');
+                            string_filter.id = 'string_filter_div';
+                            var number_filter = document.createElement('div');
+                            number_filter.id = 'numnber_range_filter_div';
+                            var table_div = document.createElement('div');
+                            table_div.id = 'table_div';
+                            var dash = document.createElement('div')
+                            dash.id = 'dashboard';
+                            dash.appendChild(string_filter);
+                            dash.appendChild(number_filter);
+                            dash.appendChild(table_div);
+                            dash.style = 'margin-top:20px;margin:auto;';
+                            string_filter.style = 'margin-top:20px;margin:auto;';
+                            number_filter.style = 'margin-top:20px;margin:auto;';
+                            table_div.style = 'margin-top:20px;margin:auto;';
+                            document.getElementsByTagName('body')[0].appendChild(dash);
+
+
+                            var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+
+                            var stringFilter = new google.visualization.ControlWrapper({
+                                controlType: 'StringFilter',
+                                containerId: 'string_filter_div',
+                                options: {
+                                    filterColumnIndex: 0
+                                }
+                            });
+
+                            var numberRangeFilter = new google.visualization.ControlWrapper({
+                                controlType: 'NumberRangeFilter',
+                                containerId: 'numnber_range_filter_div',
+                                options: {
+                                    filterColumnIndex: 2,
+                                    minValue: 0,
+                                    maxValue: 1000,
+                                    ui: {
+                                        label: 'Timestamp'
+                                    }
+                                }
+                            });
+
+                            var table = new google.visualization.ChartWrapper({
+                                chartType: 'Table',
+                                containerId: 'table_div',
+                                options: {
+                                    showRowNumber: true
+                                }
+                            });
+
+                            dashboard.bind([stringFilter, numberRangeFilter], [table]);
+                            dashboard.draw(data);
+                        } else {
+                            console.log("Null contents");
+                        }
+                    };
+
+                    document.getElementById('b1').value = 'on';
+
+                } else if (b1 == "off" & b4 == "on") {
+                    google.load('visualization', '1.1', { packages: ['controls'] });
+                    google.charts.load('current', { 'packages': ['corechart'] });
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+                    xhr.responseType = 'json';
+                    xhr.send();
+                    var rows = [];
+                    xhr.onreadystatechange = (e) => {
+
+                        var jsondat = xhr.response;
+                        if (jsondat != null) {
+                            if (Object.keys(jsondat).length > 0) {
+                                Object.keys(jsondat).forEach(function (key) {
+                                    var jsondatnest = jsondat[key];
+                                    var row = [];
+                                    Object.keys(jsondatnest).forEach(function (key1) {
+                                        row.push(jsondatnest[key1]);
+                                    });
+                                    rows.push(row);
+                                });
+                            };
+
+                            var data = new google.visualization.DataTable();
+                            data.addColumn('string', 'Sensor');
+                            data.addColumn('number', 'Reading');
+                            data.addColumn('number', 'Timestamp');
+                            data.addRows(rows);
+
+                            var string_filter = document.createElement('div');
+                            string_filter.id = 'string_filter_div';
+                            var number_filter = document.createElement('div');
+                            number_filter.id = 'numnber_range_filter_div';
+                            var table_div = document.createElement('div');
+                            table_div.id = 'table_div';
+                            var dash = document.createElement('div')
+                            dash.id = 'dashboard';
+                            dash.className = 'dash';
+                            dash.appendChild(string_filter);
+                            dash.appendChild(number_filter);
+                            dash.appendChild(table_div);
+                            document.getElementsByTagName('body')[0].appendChild(dash);
+
+
+                            var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+
+
+                            var stringFilter = new google.visualization.ControlWrapper({
+                                controlType: 'StringFilter',
+                                containerId: 'string_filter_div',
+                                options: {
+                                    filterColumnIndex: 0
+                                }
+                            });
+
+                            var numberRangeFilter = new google.visualization.ControlWrapper({
+                                controlType: 'NumberRangeFilter',
+                                containerId: 'numnber_range_filter_div',
+                                options: {
+                                    filterColumnIndex: 2,
+                                    minValue: 0,
+                                    maxValue: 1000,
+                                    ui: {
+                                        label: 'Timestamp'
+                                    }
+                                }
+                            });
+
+                            var table = new google.visualization.ChartWrapper({
+                                chartType: 'Table',
+                                containerId: 'table_div',
+                                options: {
+                                    showRowNumber: true
+                                }
+                            });
+
+                            dashboard.bind([stringFilter, numberRangeFilter], [table]);
+                            dashboard.draw(data);
+
+                        } else {
+                            console.log("Null contents");
+                        }
+                    };
+                    document.getElementById('b1').value = 'on';
+                } else {
+                    document.getElementById('b1').value = 'off';
+                }
+            }

@@ -26,14 +26,39 @@
 
         <!-- Three buttons in a group -->
         <div class="btn-group" style="width:100%">
-            <button style="width:25%" value="off" id="b1" onclick="build_table()">Data Query and Table</button>
-            <button style="width:25%" value="off" id="b2" onclick="build_graph()">Historical Capture</button>
-            <button style="width:25%" value="off" id="b3" onclick="build_control()">Manual Control</button>
-            <button style="width:25%" value="off" id="b4" onclick="build()">Buildable</button>
+            <button style="width:25%" value="off" id="b1">Data Query and Table</button>
+            <button style="width:25%" value="off" id="b2">Historical Capture</button>
+            <button style="width:25%" value="off" id="b3">Manual Control</button>
+            <button style="width:25%" value="off" id="b4">Buildable</button>
         </div>
 
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
+            import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
 
-        <script>
+            const firebaseApp = initializeApp({
+                apiKey: "AIzaSyD-r5pSqbAmOCJXReD2wzWpUTZDK0DSAy0",
+                authDomain: "capstone-database-c7175.firebaseapp.com",
+                databaseURL: "https://capstone-database-c7175-default-rtdb.firebaseio.com",
+                projectId: "capstone-database-c7175",
+                storageBucket: "capstone-database-c7175.appspot.com",
+                messagingSenderId: "900141330072",
+                appId: "1:900141330072:web:ca69e08bdc299b68f8eaed",
+                measurementId: "G-QM1XBWXWKW"
+            }); // initializing app based on specific parameters unique to the application
+
+
+            // creating buttons and adding their listeners for changing
+            const b1 = document.getElementById('b1');
+            b1.addEventListener('click', build_table);
+            const b2 = document.getElementById('b2');
+            b2.addEventListener('click', build_graph);
+            const b3 = document.getElementById('b3');
+            b3.addEventListener('click', build_control);
+            const b4 = document.getElementById('b4');
+            b4.addEventListener('click', build);
+
+
 
             function sleep(milliseconds) {
                 // sleep method in milliseconds to include delay in code
@@ -49,6 +74,11 @@
 
             function build_table() {
 
+                // build_table gets the data from a http request to an api endpoint 
+                // created by gateway api, a microservice offered from AWS. This
+                // request triggers an AWS lambda script to write all the data from
+                // the MySQL database hosted on AWS into the API endpoint 
+
                 var b1 = document.getElementById('b1').value;
                 var b2 = document.getElementById('b2').value;
                 var b3 = document.getElementById('b3').value;
@@ -58,14 +88,14 @@
 
                     if (b2 == "on") {
                         var table = document.getElementById('tbl');
-                        table.replaceChildren();
+                        //table.replaceChildren();
                         table.remove();
                         document.getElementById('b2').value = 'off';
                     }
 
                     if (b3 == "on") {
-                        var joystick = document.getElementById('joyDiv');
-                        joystick.remove();
+                        var box = document.getElementById('box');
+                        box.remove();
                         document.getElementById('b3').value = 'off';
                     }
 
@@ -241,6 +271,9 @@
                     };
                     document.getElementById('b1').value = 'on';
                 } else {
+                    var table = document.getElementById('dashboard');
+                    //table.replaceChildren();
+                    table.remove();
                     document.getElementById('b1').value = 'off';
                 }
             }
@@ -256,14 +289,14 @@
 
                     if (b1 == "on") {
                         var table = document.getElementById('dashboard');
-                        table.replaceChildren();
+                        //table.replaceChildren();
                         table.remove();
                         document.getElementById('b1').value = 'off'; // reset b1 button to off
                     }
 
                     if (b3 == "on") {
-                        var joystick = document.getElementById('joyDiv');
-                        joystick.remove();
+                        var box = document.getElementById('box');
+                        box.remove();
                         document.getElementById('b3').value = 'off'; // reset b3 button to off
                     }
 
@@ -285,9 +318,8 @@
                             hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
                             vAxis: { title: 'Sensor Value Reading', minValue: 0, maxValue: 15 },
                             legend: 'none',
-                            width: 900,
-                            height: 700
-
+                            width: 750,
+                            height: 500
                         };
 
 
@@ -334,8 +366,8 @@
                             hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
                             vAxis: { title: 'Sensor Value Reading', minValue: 0, maxValue: 15 },
                             legend: 'none',
-                            width: 900,
-                            height: 700
+                            width: 750,
+                            height: 500
                         };
 
                         var tbl = document.createElement('table');
@@ -362,46 +394,222 @@
 
                     }
                 } else {
+                    var table = document.getElementById('tbl');
+                    //table.replaceChildren();
+                    table.remove();
+                    document.getElementById('b2').value = 'off';
                     document.getElementById('b2').value = 'off';
                 }
             }
 
             function build_control() {
+
+                const db = getDatabase(firebaseApp); // get the reference to the firebase
+                const x_pwm = ref(db, "/Flags/Motor/"); // referencing x for motor control of rotational motor
+                const y_pwm = ref(db, "/Flags/Motor/"); // referencing y for motor control of linear motor
+
+                // note the references may need to be scaled either post https request on esp32 program side
+                // or pre https request in this javascript, as the motors have different configurations 
+                // and their own respective delays
                 var b1 = document.getElementById('b1').value;
                 var b2 = document.getElementById('b2').value;
                 var b3 = document.getElementById('b3').value;
                 var b4 = document.getElementById('b4').value;
+
+
                 if (b3 == 'off' & b4 == 'off') {
-                    if (b1 == 'on') {
+                    if (b1 == 'on') { // buildable button off , so programmatically removing table if loaded
                         var table = document.getElementById('dashboard');
                         table.replaceChildren();
                         table.remove();
                         document.getElementById('b1').value = 'off'; // reset b1 button to off
                     }
-                    if (b2 == 'on') {
+                    if (b2 == 'on') { // buildable button off , so programmatically removing graphs if loaded
                         var table = document.getElementById('tbl');
                         tbl.replaceChildren();
                         tbl.remove();
                         document.getElementById('b2').value = 'off';
                     }
-                    var joystick = document.createElement('div')
+
+                    var joystick = document.createElement('div');
                     joystick.id = 'joyDiv';
                     joystick.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
                     document.getElementsByTagName('body')[0].appendChild(joystick);
-                    var joy = new JoyStick('joyDiv');
+                    var joyParam = { "title": "joystick3" };
+                    var joy = new JoyStick('joyDiv', joyParam);
+                    var box = document.createElement('div');
+                    box.id = 'box';
+                    box.appendChild(joystick);
+
+                    var cont = document.createElement('div');
+                    cont.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    cont.id = 'container';
+
+                    var joy_x = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "X Position: ";
+
+                    cont.appendChild(document.createElement('br'));
+                    joy_x.setAttribute('type', 'text');
+                    joy_x.id = 'joy3PosizioneX';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_x);
+                    cont.appendChild(document.createElement('br'));
+
+                    var joy_y = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Y Position: ";
+                    joy_y.setAttribute('type', 'text');
+                    joy_y.id = 'joy3PosizioneY';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_y);
+                    cont.appendChild(document.createElement('br'));
+
+                    var joy_d = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Direction: ";
+                    joy_d.setAttribute('type', 'text');
+                    joy_d.id = 'joy3Direzione';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_d);
+                    cont.appendChild(document.createElement('br'));
+
+                    var x_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Current X: ";
+                    x_curr.setAttribute('type', 'text');
+                    x_curr.id = 'joy3X';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(x_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    var y_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Current Y: ";
+                    y_curr.setAttribute('type', 'text');
+                    y_curr.id = 'joy3Y';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(y_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    box.appendChild(cont);
+                    document.getElementsByTagName('body')[0].appendChild(box);
                     document.getElementById('b3').value = 'on';
+
+                    var joy3IinputPosX = document.getElementById("joy3PosizioneX");
+                    var joy3InputPosY = document.getElementById("joy3PosizioneY");
+                    var joy3Direzione = document.getElementById("joy3Direzione");
+                    var joy3X = document.getElementById("joy3X");
+                    var joy3Y = document.getElementById("joy3Y");
+
+                    // All functions below are time-dependent. They are essentially call-back functions
+                    // dependent on the second specifier which is an integer representing time in milliseconds
+                    setInterval(function () { joy3IinputPosX.value = joy.GetPosX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3InputPosY.value = joy.GetPosY(); }, 50); // update the absolute y-pos
+                    setInterval(function () { joy3Direzione.value = joy.GetDir(); }, 50); // update the direction of joystick
+                    setInterval(function () { joy3X.value = joy.GetX(); joy.GetX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3Y.value = joy.GetY(); }, 50); // update te absolute y-pos 
+                    setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
+                    setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
+
                 } else if (b3 == 'off' & b4 == 'on') {
-                    var joystick = document.createElement('div')
+                    var joystick = document.createElement('div');
                     joystick.id = 'joyDiv';
                     joystick.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
                     document.getElementsByTagName('body')[0].appendChild(joystick);
-                    var joy = new JoyStick('joyDiv');
+                    var joyParam = { "title": "joystick3" };
+                    var joy = new JoyStick('joyDiv', joyParam);
+                    var box = document.createElement('div');
+                    box.id = 'box';
+                    box.appendChild(joystick);
+
+                    var cont = document.createElement('div');
+                    cont.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    cont.id = 'container';
+
+                    var joy_x = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "X Position: ";
+
+                    cont.appendChild(document.createElement('br'));
+                    joy_x.setAttribute('type', 'text');
+                    joy_x.id = 'joy3PosizioneX';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_x);
+                    cont.appendChild(document.createElement('br'));
+
+                    var joy_y = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Y Position: ";
+                    joy_y.setAttribute('type', 'text');
+                    joy_y.id = 'joy3PosizioneY';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_y);
+                    cont.appendChild(document.createElement('br'));
+
+                    var joy_d = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Direction: ";
+                    joy_d.setAttribute('type', 'text');
+                    joy_d.id = 'joy3Direzione';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_d);
+                    cont.appendChild(document.createElement('br'));
+
+                    var x_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Current X: ";
+                    x_curr.setAttribute('type', 'text');
+                    x_curr.id = 'joy3X';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(x_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    var y_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = " Current Y: ";
+                    y_curr.setAttribute('type', 'text');
+                    y_curr.id = 'joy3Y';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(y_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    box.appendChild(cont);
+                    document.getElementsByTagName('body')[0].appendChild(box);
                     document.getElementById('b3').value = 'on';
+
+                    var joy3IinputPosX = document.getElementById("joy3PosizioneX");
+                    var joy3InputPosY = document.getElementById("joy3PosizioneY");
+                    var joy3Direzione = document.getElementById("joy3Direzione");
+                    var joy3X = document.getElementById("joy3X");
+                    var joy3Y = document.getElementById("joy3Y");
+
+                    // All functions below are time-dependent. They are essentially call-back functions
+                    // dependent on the second specifier which is an integer representing time in milliseconds
+                    setInterval(function () { joy3IinputPosX.value = joy.GetPosX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3InputPosY.value = joy.GetPosY(); }, 50); // update the absolute y-pos
+                    setInterval(function () { joy3Direzione.value = joy.GetDir(); }, 50); // update the direction of joystick
+                    setInterval(function () { joy3X.value = joy.GetX(); joy.GetX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3Y.value = joy.GetY(); }, 50); // update te absolute y-pos 
+                    setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
+                    setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
                 } else {
-                    var joystick = document.getElementById('joyDiv');
+                    var joystick = document.getElementById('box');
+                    joystick.remove();
                     document.getElementById('b3').value = 'off';
                 }
             }
+
             function build() {
                 var compose = document.getElementById('b4').value;
                 if (compose == 'on') {
@@ -410,7 +618,17 @@
                     document.getElementById('b4').value = 'on';
                 }
             }
+
         </script>
+
+
+        <!-- <div id="box" style="position:fixed;bottom:125px;left:750px;">
+            X position:<input id="joy3PosizioneX" type="text" /><br />
+            Y position:<input id="joy3PosizioneY" type="text" /><br />
+            Direzione:<input id="joy3Direzione" type="text" /><br />
+            X :<input id="joy3X" type="text" /></br>
+            Y :<input id="joy3Y" type="text" />
+        </div> -->
 
         <!-- <div id="dashboard">
             <div id="string_filter_div"></div>
@@ -430,7 +648,6 @@
                 </td>
             </tr>
         </table> -->
-    </center>
 </body>
 
 </html>

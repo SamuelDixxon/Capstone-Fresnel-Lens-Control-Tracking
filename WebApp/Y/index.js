@@ -1,500 +1,478 @@
+import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
+export function main(firebaseApp) {
+    // creating buttons and adding their listeners for changing
+    const b1 = document.getElementById('b1');
+    b1.addEventListener('click', build_table);
+    const b2 = document.getElementById('b2');
+    b2.addEventListener('click', build_graph);
+    const b3 = document.getElementById('b3');
+    b3.addEventListener('click', build_control);
+    const b4 = document.getElementById('b4');
+    b4.addEventListener('click', build);
 
-export default function get_table() {
+    google.load('visualization', '1.1', { packages: ['controls'] });
+    google.charts.load('current', { 'packages': ['corechart'] });
 
-    // Import the functions you need from the SDKs you need
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
-
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
-    const firebaseApp = initializeApp({
-        apiKey: "AIzaSyD-r5pSqbAmOCJXReD2wzWpUTZDK0DSAy0",
-        authDomain: "capstone-database-c7175.firebaseapp.com",
-        databaseURL: "https://capstone-database-c7175-default-rtdb.firebaseio.com",
-        projectId: "capstone-database-c7175",
-        storageBucket: "capstone-database-c7175.appspot.com",
-        messagingSenderId: "900141330072",
-        appId: "1:900141330072:web:ca69e08bdc299b68f8eaed",
-        measurementId: "G-QM1XBWXWKW"
-    }); // initializing app based on specific parameters unique to the application
-
-    const db = getDatabase(firebaseApp); // get the reference to the firebase
-    const sensors = ref(db, "/Sensors/");
-
-    onValue(sensors, (snapshot) => { // creating onValue to  reference the parent nodes of the sensors
-        var x = [];
-        snapshot.forEach((c1) => { // parsing the data to get the snapshot for the sensors and readings
-            c1.forEach((c2) => { // iterating across readings
-                var toAppend = [c1.key]; // getting sensor key string value
-                c2.forEach((c3) => { // getting the value of the 
-                    toAppend.push(c3.val()); // pusing the value of the new readings children, ie data, unit, and 
+    function draw_table(jsondat) {
+        var rows = [];
+        if (Object.keys(jsondat).length > 0) {
+            Object.keys(jsondat).forEach(function (key) {
+                var jsondatnest = jsondat[key];
+                var row = [];
+                Object.keys(jsondatnest).forEach(function (key1) {
+                    row.push(jsondatnest[key1]);
                 });
-                x.push(toAppend); // appending row to data in order to write to table
+                rows.push(row);
             });
+        }
 
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Sensor');
+        data.addColumn('number', 'Reading');
+        data.addColumn('number', 'Timestamp');
+        data.addRows(rows);
+
+        var string_filter = document.createElement('div');
+        string_filter.id = 'string_filter_div';
+        var number_filter = document.createElement('div');
+        number_filter.id = 'numnber_range_filter_div';
+        var table_div = document.createElement('div');
+        table_div.id = 'table_div';
+        var dash = document.createElement('div')
+        dash.id = 'dashboard';
+        dash.className = 'dash';
+        dash.appendChild(string_filter);
+        dash.appendChild(number_filter);
+        dash.appendChild(table_div);
+        document.getElementsByTagName('body')[0].appendChild(dash);
+
+
+        var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+
+
+        var stringFilter = new google.visualization.ControlWrapper({
+            controlType: 'StringFilter',
+            containerId: 'string_filter_div',
+            options: {
+                filterColumnIndex: 0
+            }
         });
 
-        // below is tests ran to determine parsing scheme
-
-        // const sensor1 = ref(db, "/Sensors/Magnetometer1/reading/"); // getting reference to the reading of sensor1
-        // var d1, d2, d3, x, y, z; // instantiating variables to hold the values for the sensor data
-
-        // onValue(sensor1, (snapshot) => { // when any child of sensor1 changes, get new data
-        //     x = snapshot.val()["timestamp"]; // child node key-value pair get time stamp
-        //     d1 = snapshot.val()["data"]; // child node key-value pair get the data
-        // });
-
-
-        // const sensor2 = ref(db, "/Sensors/Magnetometer2/reading/"); // getting reference reading of sensor2
-
-        // onValue(sensor2, (snapshot) => { // when any child of sensor2 changes, get new data
-        //     y = snapshot.val()["timestamp"]; // child node key-value pair get time stamp
-        //     console.log(y);
-        // });
-
-        // const sensor3 = ref(db, "/Sensors/PhotoDiode/reading/"); // getting reference to the reading of sensor3
-
-        // onValue(sensor3, (snapshot) => { // when any child of sensor2 changes, get new data
-        //     z = snapshot.val()["timestamp"]; // child node key-value pair get time stamp
-        //     d3 = snapshot.val()["data"]; // child node key-value pair get data
-        // });
-
-        // set OnLoadCallback method is to draw the table once the new data is acquired
-
-        //google.charts.setOnLoadCallback(() => drawTable(x)); // setting on callloadback method to update table with new data NoSQL version
-
-        // const Http = new XMLHttpRequest();
-        // const url = 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123';
-        // Http.open("GET", url);
-        // Http.send();
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-        xhr.responseType = 'json';
-
-
-        xhr.send();
-
-        var data = [];
-        xhr.onreadystatechange = (e) => {
-            var jsondat = xhr.response;
-            //console.log(jsondat);
-            if (jsondat != null) {
-                if (Object.keys(jsondat).length > 0) {
-                    Object.keys(jsondat).forEach(function (key) {
-                        var jsondatnest = jsondat[key];
-                        var row = [];
-                        Object.keys(jsondatnest).forEach(function (key1) {
-                            row.push(jsondatnest[key1]);
-                        });
-                        data.push(row);
-                    });
-                };
-                //console.log(data);
-                google.charts.setOnLoadCallback(() => drawTableSQL(data));
-            } else {
-                //console.log("Null contents");
+        var numberRangeFilter = new google.visualization.ControlWrapper({
+            controlType: 'NumberRangeFilter',
+            containerId: 'numnber_range_filter_div',
+            options: {
+                filterColumnIndex: 2,
+                minValue: 0,
+                maxValue: 1000,
+                ui: {
+                    label: 'Timestamp'
+                }
             }
-        };
-    });
-};
-
-
-export function get_chart() {
-
-    // console.log(data);
-    // google.charts.setOnLoadCallback(() => drawTableSQL(data));
-
-    const mag1 = ref(db, "/Sensors/Magnetometer1"); // getting reference to mag1
-
-    onValue(mag1, (snapshot) => { // creating onValue to  reference the parent nodes of the magnetometer data sensor for line chart
-        var y = [["Time", "Sensor"]]; // storing data in variable at top
-        snapshot.forEach((c1) => { // parsing the data to get the snapshot for the sensors and readings
-            var toAppend = [c1.val()["timestamp"], c1.val()["reading"]]; // getting (x,y) coordinate for line graph
-            y.push(toAppend); // appending row to data in order to write to table
         });
-        google.charts.setOnLoadCallback(() => drawChart1_noSQL(y)); // setting on callloadback method to update table with new data
-    });
 
-};
-
-
-
-
-//google.load('visualization', '1', {packages: ['controls'], callback: drawChart1 });
-google.load('visualization', '1', { packages: ['controls'] });
-google.charts.load('current', { 'packages': ['corechart'] });
-
-export function drawTableSQL(data1) {
-
-    var data = new google.visualization.DataTable();
-    data.addColumn('string', 'Sensor');
-    data.addColumn('number', 'Reading');
-    data.addColumn('number', 'Timestamp');
-    data.addRows(data1);
-
-    var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
-
-    var stringFilter = new google.visualization.ControlWrapper({
-        controlType: 'StringFilter',
-        containerId: 'string_filter_div',
-        options: {
-            filterColumnIndex: 0
-        }
-    });
-
-    var numberRangeFilter = new google.visualization.ControlWrapper({
-        controlType: 'NumberRangeFilter',
-        containerId: 'numnber_range_filter_div',
-        options: {
-            filterColumnIndex: 2,
-            minValue: 0,
-            maxValue: 1000,
-            ui: {
-                label: 'Timestamp'
+        var table = new google.visualization.ChartWrapper({
+            chartType: 'Table',
+            containerId: 'table_div',
+            options: {
+                showRowNumber: true
             }
-        }
-    });
+        });
 
-    var table = new google.visualization.ChartWrapper({
-        chartType: 'Table',
-        containerId: 'table_div',
-        options: {
-            showRowNumber: true
-        }
-    });
-
-    dashboard.bind([stringFilter, numberRangeFilter], [table]);
-    dashboard.draw(data);
-
-};
-
-function drawTable_noSQL(data1) {
-    if (Array.isArray(data1)) {
-        if (data1.length != 0) {
-            var data = new google.visualization.DataTable();
-            data.addColumn('string', 'Sensor');
-            data.addColumn('number', 'Reading');
-            data.addColumn('number', 'Timestamp');
-            data.addColumn('string', 'Unit');
-
-            // debug logs
-            // console.log("Non-empty! ");
-            // console.log(data1.length);
-            // console.log(data1);
-
-            data.addRows(data1); // adding parsed data array
-
-            var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
-
-            var stringFilter = new google.visualization.ControlWrapper({
-                controlType: 'StringFilter',
-                containerId: 'string_filter_div',
-                options: {
-                    filterColumnIndex: 0
-                }
-            });
-
-            var numberRangeFilter = new google.visualization.ControlWrapper({
-                controlType: 'NumberRangeFilter',
-                containerId: 'numnber_range_filter_div',
-                options: {
-                    filterColumnIndex: 2,
-                    minValue: 0,
-                    maxValue: 1000,
-                    ui: {
-                        label: 'Timestamp'
-                    }
-                }
-            });
-
-            var table = new google.visualization.ChartWrapper({
-                chartType: 'Table',
-                containerId: 'table_div',
-                options: {
-                    showRowNumber: true
-                }
-            });
-
-            dashboard.bind([stringFilter, numberRangeFilter], [table]);
-            dashboard.draw(data);
-
-        } else {
-            console.log("empty!");
-        }
-    } else {
-        console.log("Not an array, please pass data as an array!");
-    }
-};
-
-function drawChart1_noSQL(d) {
-    if (Array.isArray(d)) {
-        if (d.length > 1) {
-            var data = google.visualization.arrayToDataTable(d);
-            var options = {
-                title: 'Sensor Value Reading vs. Time',
-                hAxis: { title: 'Time (thousands of second)', minValue: 0, maxValue: 1000 },
-                vAxis: { title: 'Sensor Value Reading', minValue: 0, maxValue: 1 },
-                legend: 'none'
-            };
-
-            var chart = new google.visualization.ScatterChart(document.getElementById('chart_div_1'));
-            chart.draw(data, options);
-        }
-    }
-};
-
-function drawChart2_noSQL() {
-    var data = google.visualization.arrayToDataTable([
-        ['Time', 'Sensor'],
-        [8, 12],
-        [4, 5.5],
-        [11, 14],
-        [4, 5],
-        [3, 3.5],
-        [6.5, 7]
-    ]);
-
-    var options = {
-        title: 'Sensor Value Reading vs. Timestamp',
-        hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
-        vAxis: { title: 'Sensor Value Reading', minValue: 0, maxValue: 15 },
-        legend: 'none',
-        width: 500,
-        height: 500
+        dashboard.bind([stringFilter, numberRangeFilter], [table]);
+        dashboard.draw(data);
     };
 
-    var chart = new google.visualization.ScatterChart(document.getElementById('chart_div_2'));
 
-    chart.draw(data, options);
-};
+    function draw_graph(jsondat) {
 
-function load_table() {
-    google.load('visualization', '1', { packages: ['controls'] });
-    google.charts.load('current', { 'packages': ['corechart'] });
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-    xhr.responseType = 'json';
-    xhr.send();
-    var data = [];
-    xhr.onreadystatechange = (e) => {
-        var jsondat = xhr.response;
+        var rows = [[{ label: 'number' }, { type: 'number' }]];
+        var rows2 = [[{ label: 'number' }, { type: 'number' }]];
         if (jsondat != null) {
+            console.log("made it");
+
             if (Object.keys(jsondat).length > 0) {
                 Object.keys(jsondat).forEach(function (key) {
-                    var jsondatnest = jsondat[key];
-                    var row = [];
-                    Object.keys(jsondatnest).forEach(function (key1) {
-                        row.push(jsondatnest[key1]);
-                    });
-                    data.push(row);
+
+                    if (jsondat[key]["sensor"] == "Magnetometer1") {
+                        var row = [];
+                        row = [jsondat[key]["timestamp"], jsondat[key]["data"]];
+                        rows.push(row);
+                    }
+                    if (jsondat[key]["sensor"] == "Magnetometer2") {
+                        var row = [];
+                        row = [jsondat[key]["timestamp"], jsondat[key]["data"]];
+                        rows2.push(row);
+                    }
                 });
+
+                var data_mag1 = google.visualization.arrayToDataTable(rows, false);
+                var data_mag2 = google.visualization.arrayToDataTable(rows2, false);
+
+                var options1 = {
+                    title: 'Sensor Value Reading vs. Timestamp',
+                    // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
+                    // vAxis: { title: 'Sensor Value Reading 1', minValue: 0, maxValue: 15 },
+                    legend: 'none',
+                    width: 750,
+                    height: 500
+                };
+
+                var options2 = {
+                    title: 'Sensor Value Reading vs. Timestamp',
+                    // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
+                    // vAxis: { title: 'Sensor Value Reading 2', minValue: 0, maxValue: 15 },
+                    legend: 'none',
+                    width: 750,
+                    height: 500
+                };
+
+                var tbl = document.createElement('table');
+                tbl.id = 'tbl';
+                tbl.className = 'columns';
+                var row = document.createElement('tr');
+                var cell1 = document.createElement('td');
+                var cell2 = document.createElement('td');
+                var graph1 = document.createElement('div');
+                graph1.id = 'chart_div1';
+                var graph2 = document.createElement('div');
+                graph2.id = 'chart_div2';
+                cell1.appendChild(graph1);
+                cell2.appendChild(graph2);
+                row.appendChild(cell1); row.appendChild(cell2);
+                tbl.appendChild(row);
+                document.getElementsByTagName('body')[0].appendChild(tbl);
+
+                var chart = new google.visualization.ScatterChart(document.getElementById('chart_div1'));
+                var chart2 = new google.visualization.ScatterChart(document.getElementById('chart_div2'))
+                chart.draw(data_mag1, options1);
+                chart2.draw(data_mag2, options2);
+                console.log("test");
+                document.getElementById('b2').value = 'on';
             };
-            google.charts.setOnLoadCallback(() => drawTableSQL(data));
+
+        }
+    }
+
+    function build_table() {
+
+        // build_table gets the data from a http request to an api endpoint 
+        // created by gateway api, a microservice offered from AWS. This
+        // request triggers an AWS lambda script to write all the data from
+        // the MySQL database hosted on AWS into the API endpoint 
+
+        var b1 = document.getElementById('b1').value;
+        var b2 = document.getElementById('b2').value;
+        var b3 = document.getElementById('b3').value;
+        var b4 = document.getElementById('b4').value;
+
+        if (b1 == "off" & b4 == "off") {
+
+            if (b2 == "on") {
+                var table = document.getElementById('tbl');
+                table.remove();
+                document.getElementById('b2').value = 'off';
+            }
+
+            if (b3 == "on") {
+                var box = document.getElementById('box');
+                box.remove();
+                document.getElementById('b3').value = 'off';
+            }
+
+
+            google.charts.load('current', { 'packages': ['corechart'] });
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+            xhr.responseType = 'json';
+            xhr.send();
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                if (jsondat != null) {
+                    draw_table(jsondat);
+                } else {
+                    console.log("Null contents");
+                }
+            };
+
+            document.getElementById('b1').value = 'on';
+
+        } else if (b1 == "off" & b4 == "on") {
+
+            google.charts.load('current', { 'packages': ['corechart'] });
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+            xhr.responseType = 'json';
+            xhr.send();
+            var rows = [];
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                if (jsondat != null) {
+                    draw_table(jsondat);
+                } else {
+                    console.log("Null contents");
+                }
+            };
+            document.getElementById('b1').value = 'on';
+
         } else {
-            console.log("Null contents");
+            var table = document.getElementById('dashboard');
+            table.remove();
+            document.getElementById('b1').value = 'off';
         }
     };
-};
 
-function build_table() {
 
+    function build_graph() {
+
+        var b1 = document.getElementById('b1').value;
+        var b2 = document.getElementById('b2').value;
+        var b3 = document.getElementById('b3').value;
+        var b4 = document.getElementById('b4').value;
+
+        if (b2 == "off" & b4 == "off") {
+
+            if (b1 == "on") {
+                var table = document.getElementById('dashboard');
+                table.remove();
+                document.getElementById('b1').value = 'off'; // reset b1 button to off
+            }
+
+            if (b3 == "on") {
+                var box = document.getElementById('box');
+                box.remove();
+                document.getElementById('b3').value = 'off'; // reset b3 button to off
+            }
+
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+            xhr.responseType = 'json';
+            xhr.send();
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                draw_graph(jsondat);
+            };
+
+            document.getElementById('b2').value = 'on';
+
+        } else if (b2 == "off" & b4 == "on") {
+
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
+            xhr.responseType = 'json';
+            xhr.send();
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                draw_graph(jsondat);
+            };
+
+            document.getElementById('b2').value = 'on';
+
+        } else {
+            var table = document.getElementById('tbl');
+            table.remove();
+            document.getElementById('b2').value = 'off';
+            document.getElementById('b2').value = 'off';
+        }
+    }
+
+    function build_control() {
+
+        const db = getDatabase(firebaseApp); // get the reference to the firebase
+
+        const x_pwm = ref(db, "/Flags/Motor/"); // referencing x for motor control of rotational motor
+        const y_pwm = ref(db, "/Flags/Motor/"); // referencing y for motor control of linear motor
+
+        var password = window.prompt("Enter credential for motor for motor control", "");
+
+        var d = ref(db, "/Flags/" + password + "/");
+
+        onValue(d, (snapshot) => {
+
+            if (snapshot.val() != null) {
                 var b1 = document.getElementById('b1').value;
                 var b2 = document.getElementById('b2').value;
                 var b3 = document.getElementById('b3').value;
                 var b4 = document.getElementById('b4').value;
 
-                if (b1 == "off" & b4 == "off") {
 
-                    if (b2 == "on") {
-                        var table = document.getElementById('tbl');
-                        //table.replaceChildren();
+                if (b3 == 'off' & b4 == 'off') {
+                    if (b1 == 'on') { // buildable button off , so programmatically removing table if loaded
+                        var table = document.getElementById('dashboard');
+                        table.replaceChildren();
                         table.remove();
+                        document.getElementById('b1').value = 'off'; // reset b1 button to off
+                    }
+                    if (b2 == 'on') { // buildable button off , so programmatically removing graphs if loaded
+                        var table = document.getElementById('tbl');
+                        tbl.replaceChildren();
+                        tbl.remove();
                         document.getElementById('b2').value = 'off';
                     }
 
-                    if (b3 == "on") {
-                        var box = document.getElementById('box');
-                        box.remove();
-                        document.getElementById('b3').value = 'off';
-                    }
 
-                    google.load('visualization', '1.1', { packages: ['controls'] });
-                    google.charts.load('current', { 'packages': ['corechart'] });
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-                    xhr.responseType = 'json';
-                    xhr.send();
-                    var rows = [];
-                    xhr.onreadystatechange = (e) => {
+                    var joystick = document.createElement('div');
+                    joystick.id = 'joyDiv';
+                    joystick.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    document.getElementsByTagName('body')[0].appendChild(joystick);
+                    var joyParam = { "title": "joystick3" };
+                    var joy = new JoyStick('joyDiv', joyParam);
+                    var box = document.createElement('div');
+                    box.id = 'box';
+                    box.appendChild(joystick);
 
-                        var jsondat = xhr.response;
-                        if (jsondat != null) {
-                            if (Object.keys(jsondat).length > 0) {
-                                Object.keys(jsondat).forEach(function (key) {
-                                    var jsondatnest = jsondat[key];
-                                    var row = [];
-                                    Object.keys(jsondatnest).forEach(function (key1) {
-                                        row.push(jsondatnest[key1]);
-                                    });
-                                    rows.push(row);
-                                });
-                            };
+                    var cont = document.createElement('div');
+                    cont.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    cont.id = 'container';
 
-                            var data = new google.visualization.DataTable();
-                            data.addColumn('string', 'Sensor');
-                            data.addColumn('number', 'Reading');
-                            data.addColumn('number', 'Timestamp');
-                            data.addRows(rows);
+                    var joy_d = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Direction: ";
+                    joy_d.setAttribute('type', 'text');
+                    joy_d.id = 'joy3Direzione';
 
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_d);
+                    cont.appendChild(document.createElement('br'));
 
-                            var string_filter = document.createElement('div');
-                            string_filter.id = 'string_filter_div';
-                            var number_filter = document.createElement('div');
-                            number_filter.id = 'numnber_range_filter_div';
-                            var table_div = document.createElement('div');
-                            table_div.id = 'table_div';
-                            var dash = document.createElement('div')
-                            dash.id = 'dashboard';
-                            dash.appendChild(string_filter);
-                            dash.appendChild(number_filter);
-                            dash.appendChild(table_div);
-                            dash.style = 'margin-top:20px;margin:auto;';
-                            string_filter.style = 'margin-top:20px;margin:auto;';
-                            number_filter.style = 'margin-top:20px;margin:auto;';
-                            table_div.style = 'margin-top:20px;margin:auto;';
-                            document.getElementsByTagName('body')[0].appendChild(dash);
+                    var x_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Current X: ";
+                    x_curr.setAttribute('type', 'text');
+                    x_curr.id = 'joy3X';
 
+                    cont.appendChild(txt);
+                    cont.appendChild(x_curr);
+                    cont.appendChild(document.createElement('br'));
 
-                            var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+                    var y_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Current Y: ";
+                    y_curr.setAttribute('type', 'text');
+                    y_curr.id = 'joy3Y';
 
-                            var stringFilter = new google.visualization.ControlWrapper({
-                                controlType: 'StringFilter',
-                                containerId: 'string_filter_div',
-                                options: {
-                                    filterColumnIndex: 0
-                                }
-                            });
+                    cont.appendChild(txt);
+                    cont.appendChild(y_curr);
+                    cont.appendChild(document.createElement('br'));
 
-                            var numberRangeFilter = new google.visualization.ControlWrapper({
-                                controlType: 'NumberRangeFilter',
-                                containerId: 'numnber_range_filter_div',
-                                options: {
-                                    filterColumnIndex: 2,
-                                    minValue: 0,
-                                    maxValue: 1000,
-                                    ui: {
-                                        label: 'Timestamp'
-                                    }
-                                }
-                            });
+                    box.appendChild(cont);
+                    document.getElementsByTagName('body')[0].appendChild(box);
+                    document.getElementById('b3').value = 'on';
 
-                            var table = new google.visualization.ChartWrapper({
-                                chartType: 'Table',
-                                containerId: 'table_div',
-                                options: {
-                                    showRowNumber: true
-                                }
-                            });
+                    var joy3IinputPosX = document.getElementById("joy3PosizioneX");
+                    var joy3InputPosY = document.getElementById("joy3PosizioneY");
+                    var joy3Direzione = document.getElementById("joy3Direzione");
+                    var joy3X = document.getElementById("joy3X");
+                    var joy3Y = document.getElementById("joy3Y");
 
-                            dashboard.bind([stringFilter, numberRangeFilter], [table]);
-                            dashboard.draw(data);
-                        } else {
-                            console.log("Null contents");
-                        }
-                    };
-
-                    document.getElementById('b1').value = 'on';
-
-                } else if (b1 == "off" & b4 == "on") {
-                    google.load('visualization', '1.1', { packages: ['controls'] });
-                    google.charts.load('current', { 'packages': ['corechart'] });
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-                    xhr.responseType = 'json';
-                    xhr.send();
-                    var rows = [];
-                    xhr.onreadystatechange = (e) => {
-
-                        var jsondat = xhr.response;
-                        if (jsondat != null) {
-                            if (Object.keys(jsondat).length > 0) {
-                                Object.keys(jsondat).forEach(function (key) {
-                                    var jsondatnest = jsondat[key];
-                                    var row = [];
-                                    Object.keys(jsondatnest).forEach(function (key1) {
-                                        row.push(jsondatnest[key1]);
-                                    });
-                                    rows.push(row);
-                                });
-                            };
-
-                            var data = new google.visualization.DataTable();
-                            data.addColumn('string', 'Sensor');
-                            data.addColumn('number', 'Reading');
-                            data.addColumn('number', 'Timestamp');
-                            data.addRows(rows);
-
-                            var string_filter = document.createElement('div');
-                            string_filter.id = 'string_filter_div';
-                            var number_filter = document.createElement('div');
-                            number_filter.id = 'numnber_range_filter_div';
-                            var table_div = document.createElement('div');
-                            table_div.id = 'table_div';
-                            var dash = document.createElement('div')
-                            dash.id = 'dashboard';
-                            dash.className = 'dash';
-                            dash.appendChild(string_filter);
-                            dash.appendChild(number_filter);
-                            dash.appendChild(table_div);
-                            document.getElementsByTagName('body')[0].appendChild(dash);
+                    // All functions below are time-dependent. They are essentially call-back functions
+                    // dependent on the second specifier which is an integer representing time in milliseconds
+                    setInterval(function () { joy3Direzione.value = joy.GetDir(); }, 50); // update the direction of joystick
+                    setInterval(function () { joy3X.value = joy.GetX(); joy.GetX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3Y.value = joy.GetY(); }, 50); // update te absolute y-pos 
+                    setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
+                    setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
 
 
-                            var dashboard = new google.visualization.Dashboard(document.querySelector('#dashboard'));
+                } else if (b3 == 'off' & b4 == 'on') {
 
+                    var joystick = document.createElement('div');
+                    joystick.id = 'joyDiv';
+                    joystick.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    document.getElementsByTagName('body')[0].appendChild(joystick);
+                    var joyParam = { "title": "joystick3" };
+                    var joy = new JoyStick('joyDiv', joyParam);
+                    var box = document.createElement('div');
+                    box.id = 'box';
+                    box.appendChild(joystick);
 
-                            var stringFilter = new google.visualization.ControlWrapper({
-                                controlType: 'StringFilter',
-                                containerId: 'string_filter_div',
-                                options: {
-                                    filterColumnIndex: 0
-                                }
-                            });
+                    var cont = document.createElement('div');
+                    cont.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
+                    cont.id = 'container';
 
-                            var numberRangeFilter = new google.visualization.ControlWrapper({
-                                controlType: 'NumberRangeFilter',
-                                containerId: 'numnber_range_filter_div',
-                                options: {
-                                    filterColumnIndex: 2,
-                                    minValue: 0,
-                                    maxValue: 1000,
-                                    ui: {
-                                        label: 'Timestamp'
-                                    }
-                                }
-                            });
+                    var joy_d = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Direction: ";
+                    joy_d.setAttribute('type', 'text');
+                    joy_d.id = 'joy3Direzione';
 
-                            var table = new google.visualization.ChartWrapper({
-                                chartType: 'Table',
-                                containerId: 'table_div',
-                                options: {
-                                    showRowNumber: true
-                                }
-                            });
+                    cont.appendChild(txt);
+                    cont.appendChild(joy_d);
+                    cont.appendChild(document.createElement('br'));
 
-                            dashboard.bind([stringFilter, numberRangeFilter], [table]);
-                            dashboard.draw(data);
+                    var x_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Current X: ";
+                    x_curr.setAttribute('type', 'text');
+                    x_curr.id = 'joy3X';
 
-                        } else {
-                            console.log("Null contents");
-                        }
-                    };
-                    document.getElementById('b1').value = 'on';
+                    cont.appendChild(txt);
+                    cont.appendChild(x_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    var y_curr = document.createElement('input');
+                    var txt = document.createElement('txt');
+                    txt.innerHTML = "Current Y: ";
+                    y_curr.setAttribute('type', 'text');
+                    y_curr.id = 'joy3Y';
+
+                    cont.appendChild(txt);
+                    cont.appendChild(y_curr);
+                    cont.appendChild(document.createElement('br'));
+
+                    box.appendChild(cont);
+                    document.getElementsByTagName('body')[0].appendChild(box);
+                    document.getElementById('b3').value = 'on';
+
+                    var joy3IinputPosX = document.getElementById("joy3PosizioneX");
+                    var joy3InputPosY = document.getElementById("joy3PosizioneY");
+                    var joy3Direzione = document.getElementById("joy3Direzione");
+                    var joy3X = document.getElementById("joy3X");
+                    var joy3Y = document.getElementById("joy3Y");
+
+                    // All functions below are time-dependent. They are essentially call-back functions
+                    // dependent on the second specifier which is an integer representing time in milliseconds
+                    setInterval(function () { joy3Direzione.value = joy.GetDir(); }, 50); // update the direction of joystick
+                    setInterval(function () { joy3X.value = joy.GetX(); joy.GetX(); }, 50); // update the absolute x-pos
+                    setInterval(function () { joy3Y.value = joy.GetY(); }, 50); // update te absolute y-pos 
+                    setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
+                    setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
+
                 } else {
-                    document.getElementById('b1').value = 'off';
+                    var joystick = document.getElementById('box');
+                    joystick.remove();
+                    document.getElementById('b3').value = 'off';
                 }
+
+            } else {
+                alert("Entered wrong password, please try again!");
             }
+        });
+        // note the references may need to be scaled either post https request on esp32 program side
+        // or pre https request in this javascript, as the motors have different configurations 
+        // and their own respective delays
+    }
+
+    function build() {
+        var compose = document.getElementById('b4').value;
+        if (compose == 'on') {
+            document.getElementById('b4').value = 'off';
+        } else {
+            document.getElementById('b4').value = 'on';
+        }
+    }
+
+}
+
+export function sleep(milliseconds) {
+    // sleep method in milliseconds to include delay in code
+    // Get the current data
+    const date = Date.now();
+    let currentDate = null;
+    // do while loop to allow delay to happen until parameter
+    // milliseconds is achieved
+    do {
+        currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+};

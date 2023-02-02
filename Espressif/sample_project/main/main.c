@@ -113,7 +113,6 @@ static void post_rest_function()
     esp_http_client_handle_t client = esp_http_client_init(&config_post);
 
     char *post_data = "{\"sensor\":\"Magnetometer1\",\"data\":1.345}";
-  
 
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
     esp_http_client_set_header(client, "Content-Type", "application/json");
@@ -128,12 +127,13 @@ void app_main(void)
 
     printf("WIFI was initiated ...........\n\n");
 
-    // while (true)
-    // {
-    //     rest_get();
-    //     post_rest_function();
-    //     vTaskDelay(2000 / portTICK_PERIOD_MS);
-    // }
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    post_rest_function();
+    while (true)
+    {
+        rest_get();
+        // post_rest_function();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    // vTaskDelay(5000 / portTICK_PERIOD_MS);
+    //  post_rest_function();
 }

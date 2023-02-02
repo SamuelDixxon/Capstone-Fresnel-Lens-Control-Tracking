@@ -9,7 +9,9 @@ export function main(firebaseApp) {
     const b3 = document.getElementById('b3');
     b3.addEventListener('click', build_control);
     const b4 = document.getElementById('b4');
-    b4.addEventListener('click', build);
+    b4.addEventListener('click', build_control_txt);
+    const b5 = document.getElementById('b5');
+    b5.addEventListener('click', build);
 
     google.load('visualization', '1.1', { packages: ['controls'] });
     google.charts.load('current', { 'packages': ['corechart'] });
@@ -90,7 +92,7 @@ export function main(firebaseApp) {
         var rows = [[{ label: 'number' }, { type: 'number' }]];
         var rows2 = [[{ label: 'number' }, { type: 'number' }]];
         if (jsondat != null) {
-            console.log("made it");
+            //console.log("made it"); // testing
 
             if (Object.keys(jsondat).length > 0) {
                 Object.keys(jsondat).forEach(function (key) {
@@ -165,9 +167,9 @@ export function main(firebaseApp) {
         var b1 = document.getElementById('b1').value;
         var b2 = document.getElementById('b2').value;
         var b3 = document.getElementById('b3').value;
-        var b4 = document.getElementById('b4').value;
+        var b5 = document.getElementById('b5').value;
 
-        if (b1 == "off" & b4 == "off") {
+        if (b1 == "off" & b5 == "off") {
 
             if (b2 == "on") {
                 var table = document.getElementById('tbl');
@@ -198,7 +200,7 @@ export function main(firebaseApp) {
 
             document.getElementById('b1').value = 'on';
 
-        } else if (b1 == "off" & b4 == "on") {
+        } else if (b1 == "off" & b5 == "on") {
 
             google.charts.load('current', { 'packages': ['corechart'] });
             const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
@@ -229,9 +231,9 @@ export function main(firebaseApp) {
         var b1 = document.getElementById('b1').value;
         var b2 = document.getElementById('b2').value;
         var b3 = document.getElementById('b3').value;
-        var b4 = document.getElementById('b4').value;
+        var b5 = document.getElementById('b5').value;
 
-        if (b2 == "off" & b4 == "off") {
+        if (b2 == "off" & b5 == "off") {
 
             if (b1 == "on") {
                 var table = document.getElementById('dashboard');
@@ -256,7 +258,7 @@ export function main(firebaseApp) {
 
             document.getElementById('b2').value = 'on';
 
-        } else if (b2 == "off" & b4 == "on") {
+        } else if (b2 == "off" & b5 == "on") {
 
             const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
             xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
@@ -294,10 +296,10 @@ export function main(firebaseApp) {
                 var b1 = document.getElementById('b1').value;
                 var b2 = document.getElementById('b2').value;
                 var b3 = document.getElementById('b3').value;
-                var b4 = document.getElementById('b4').value;
+                var b5 = document.getElementById('b5').value;
 
 
-                if (b3 == 'off' & b4 == 'off') {
+                if (b3 == 'off' & b5 == 'off') {
                     if (b1 == 'on') { // buildable button off , so programmatically removing table if loaded
                         var table = document.getElementById('dashboard');
                         table.replaceChildren();
@@ -316,7 +318,8 @@ export function main(firebaseApp) {
                     joystick.id = 'joyDiv';
                     joystick.style = 'width:400px;height:400px;margin-bottom:20px;margin:auto;';
                     document.getElementsByTagName('body')[0].appendChild(joystick);
-                    var joyParam = { "title": "joystick3" };
+                    var joyParam = { "title": "joystick3", "autoReturnToCenter": false };
+
                     var joy = new JoyStick('joyDiv', joyParam);
                     var box = document.createElement('div');
                     box.id = 'box';
@@ -371,11 +374,12 @@ export function main(firebaseApp) {
                     setInterval(function () { joy3Direzione.value = joy.GetDir(); }, 50); // update the direction of joystick
                     setInterval(function () { joy3X.value = joy.GetX(); joy.GetX(); }, 50); // update the absolute x-pos
                     setInterval(function () { joy3Y.value = joy.GetY(); }, 50); // update te absolute y-pos 
+
                     setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
                     setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
 
 
-                } else if (b3 == 'off' & b4 == 'on') {
+                } else if (b3 == 'off' & b5 == 'on') {
 
                     var joystick = document.createElement('div');
                     joystick.id = 'joyDiv';
@@ -439,6 +443,7 @@ export function main(firebaseApp) {
                     setInterval(function () { update(x_pwm, { 'x': parseInt(joy.GetX()) }); }, 100); // update the NoSQL database node for https req from esp32
                     setInterval(function () { update(y_pwm, { 'y': parseInt(joy.GetY()) }); }, 50);  // update the NoSQL database node for https req from esp32
 
+
                 } else {
                     var joystick = document.getElementById('box');
                     joystick.remove();
@@ -454,12 +459,73 @@ export function main(firebaseApp) {
         // and their own respective delays
     }
 
+    function build_control_txt() {
+
+        const db = getDatabase(firebaseApp); // get the reference to the firebase
+
+        const x_pwm = ref(db, "/Flags/Motor/"); // referencing x for motor control of rotational motor
+        const y_pwm = ref(db, "/Flags/Motor/"); // referencing y for motor control of linear motor
+
+
+
+        var password = window.prompt("Enter credential for motor for motor control", "");
+
+        var button = document.createElement('button');
+
+        button.onclick = function update_joystick() {
+            try {
+                update(x_pwm, { 'x': parseInt(x.value) });
+                update(y_pwm, { 'y': parseInt(y.value) });
+                x.value = "";
+                y.value = "";
+            } catch {
+                console.log("not found!"); // debugging and error caught
+            }
+        };
+
+        var d = ref(db, "/Flags/" + password + "/");
+
+        onValue(d, (snapshot) => {
+            if (snapshot.val() != null) {
+
+                var box = document.createElement('div');
+                box.id = 'box';
+
+                var x = document.createElement('input');
+                x.id = 'x';
+                x.textContent = 'Enter x coordinate';
+                var y = document.createElement('input');
+                y.id = 'y';
+                y.textContent = 'Enter y coordinate';
+                button.innerHTML = "Update Position";
+
+                box.appendChild(button);
+                box.appendChild(document.createElement("br"));
+                var x_txt = document.createElement('div');
+                x_txt.innerHTML = "X position";
+                box.appendChild(x_txt);
+                box.appendChild(x);
+                box.appendChild(document.createElement("br"));
+                var y_txt = document.createElement('div');
+                y_txt.innerHTML = "Y position";
+                box.appendChild(y_txt);
+                box.appendChild(y);
+
+                document.getElementsByTagName('body')[0].appendChild(box);
+                document.getElementById('b4').value = 'on';
+
+            } else {
+                alert("Wrong Password!");
+            }
+        });
+    }
+
     function build() {
-        var compose = document.getElementById('b4').value;
+        var compose = document.getElementById('b5').value;
         if (compose == 'on') {
-            document.getElementById('b4').value = 'off';
+            document.getElementById('b5').value = 'off';
         } else {
-            document.getElementById('b4').value = 'on';
+            document.getElementById('b5').value = 'on';
         }
     }
 

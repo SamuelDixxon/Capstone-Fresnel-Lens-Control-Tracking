@@ -84,3 +84,10 @@ h1 {
     height: 70%;
     margin-top: 20px;
 }
+
+#box {
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

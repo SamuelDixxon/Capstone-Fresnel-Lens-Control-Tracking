@@ -321,6 +321,8 @@
 #include <stdio.h>
 #include "esp_log.h"
 #include "driver/i2c.h"
+#include <math.h>
+#include <time.h>
 
 /**
  * TEST CODE BRIEF
@@ -368,7 +370,6 @@
 
 // MMA8451 defines
 #define MMA8451_I2C_ADDR 0x1D
-
 #define MMA8451_OUT_X_MSB 0x01
 #define WHO_AM_I_REG 0x0D
 #define XYZ_DATA_CFG_REG 0x0E
@@ -377,21 +378,19 @@
 #define CTRL_REG3 0x2C
 #define CTRL_REG4 0x2D
 #define CTRL_REG5 0x2E
-
 #define ASLP_RATE_20MS 0x00
 #define ACTIVE_MASK 0x01
-
 #define DATA_RATE_80MS 0x28
 #define FULL_SCALE_2G 0x00
-
 #define MODS_MASK 0x03
 #define MODS1_MASK 0x02
 #define MODS0_MASK 0x01
-
 #define PP_OD_MASK 0x01
 #define INT_EN_DRDY_MASK 0x01
-
 #define INT_CFG_DRDY_MASK 0x01
+
+// MMC5603 defines
+#define MMA8451_I2C_ADDR 0x30
 
 // Structure to hold accelerometer data
 typedef struct ACCEL_DATA
@@ -506,35 +505,35 @@ static void mma8451_init()
     **    - Full Scale of +/-2g
     */
     //	IIC_RegWrite(SlaveAddressIIC, CTRL_REG1, ASLP_RATE_20MS+DATA_RATE_5MS);
-    // val = (ASLP_RATE_20MS + DATA_RATE_80MS);
-    // wrMMA845x(CTRL_REG1, &(val), 1);
+    val = (ASLP_RATE_20MS + DATA_RATE_80MS);
+    wrMMA845x(CTRL_REG1, &(val), 1);
 
-    // // configure 2G full scale, High_Pass_Filter disabled
-    // val = (FULL_SCALE_2G);
-    // wrMMA845x(XYZ_DATA_CFG_REG, &(val), 1);
+    // configure 2G full scale, High_Pass_Filter disabled
+    val = (FULL_SCALE_2G);
+    wrMMA845x(XYZ_DATA_CFG_REG, &(val), 1);
 
-    // // Setup Hi-Res mode (14-bit)
-    // rdMMA845x(CTRL_REG2, &(val), 1);
-    // val &= ~(MODS_MASK);
-    // val |= (MODS1_MASK);
-    // wrMMA845x(CTRL_REG2, &(val), 1);
+    // Setup Hi-Res mode (14-bit)
+    rdMMA845x(CTRL_REG2, &(val), 1);
+    val &= ~(MODS_MASK);
+    val |= (MODS1_MASK);
+    wrMMA845x(CTRL_REG2, &(val), 1);
 
-    // // Configure the INT pins for Open Drain and Active Low
-    // val = (PP_OD_MASK);
-    // wrMMA845x(CTRL_REG3, &(val), 1);
+    // Configure the INT pins for Open Drain and Active Low
+    val = (PP_OD_MASK);
+    wrMMA845x(CTRL_REG3, &(val), 1);
 
-    // // Enable the DRDY Interrupt
-    // val = (INT_EN_DRDY_MASK);
-    // wrMMA845x(CTRL_REG4, &(val), 1);
+    // Enable the DRDY Interrupt
+    val = (INT_EN_DRDY_MASK);
+    wrMMA845x(CTRL_REG4, &(val), 1);
 
-    // // Set the DRDY Interrupt to INT1
-    // val = (INT_CFG_DRDY_MASK);
-    // wrMMA845x(CTRL_REG5, &(val), 1);
+    // Set the DRDY Interrupt to INT1
+    val = (INT_CFG_DRDY_MASK);
+    wrMMA845x(CTRL_REG5, &(val), 1);
 
-    // // reconfig done, make active
-    // rdMMA845x(CTRL_REG1, &(val), 1);
-    // val |= (ACTIVE_MASK);
-    // wrMMA845x(CTRL_REG1, &(val), 1);
+    // reconfig done, make active
+    rdMMA845x(CTRL_REG1, &(val), 1);
+    val |= (ACTIVE_MASK);
+    wrMMA845x(CTRL_REG1, &(val), 1);
 }
 
 /**
@@ -566,39 +565,143 @@ static void i2c_test_task(void *arg)
 {
     esp_err_t err;
     stACCEL_DATA_t acc;
-
     ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMA8451 Accelerometer");
+    // while (1)
+    // {
+    // Note: as configured, reading data from the output registers will start next acquisition
+    err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&acc, sizeof(acc));
 
-    while (1)
-    {
+    // byte-swap values to make little-endian
+    acc.X = byte_swap(acc.X);
+    acc.Y = byte_swap(acc.Y);
+    acc.Z = byte_swap(acc.Z);
 
-        // Note: as configured, reading data from the output registers will start next acquisition
-        err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&acc, sizeof(acc));
+    // shift each value to align 14-bits in 16-bit ints
+    acc.X /= 4;
+    acc.Y /= 4;
+    acc.Z /= 4;
 
-        // byte-swap values to make little-endian
-        acc.X = byte_swap(acc.X);
-        acc.Y = byte_swap(acc.Y);
-        acc.Z = byte_swap(acc.Z);
+    ESP_LOGI(TAG, "Raw Readings");
+    ESP_LOGI(TAG, "Accelerometer err:%d  x:%5d  y:%5d  z:%5d", err, acc.X, acc.Y, acc.Z);
+    ESP_LOGI(TAG, "Translated Readings");
 
-        // shift each value to align 14-bits in 16-bit ints
-        acc.X /= 4;
-        acc.Y /= 4;
-        acc.Z /= 4;
+    float x = (acc.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
+    float y = (acc.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
+    float z = (acc.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
 
-        ESP_LOGI(TAG, "Accelerometer err:%d  x:%5d  y:%5d  z:%5d", err, acc.X, acc.Y, acc.Z);
-
-        vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
-    }
+    ESP_LOGI(TAG, "Accelerometer err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
+    vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+    // }
 }
 
 void app_main()
 {
     i2c_master_init();
 
+    // Simple test for device id
     // uint8_t val[2];
     // rdMMA845x(WHO_AM_I_REG, &(val), 1);
     // printf("%X\n", val[0]);
 
     mma8451_init();
-    // xTaskCreate(i2c_test_task, "i2c_test_task_0", 1024 * 2, (void *)0, 10, NULL);
+    i2c_test_task();
+
+    // xTaskCreate(i2c_test_task, "i2c_test_task_0", 1024 * 2, (void *)0, 10, NULL); // use for when continuously polling data ! uncomment while loop in i2c_test_task
+
+    // Jordan's Code for azimuth / elevation computation
+    // get local time and day from library
+    // double current_day;
+    // int current_month;
+    // int current_year;
+    // float current_hour;
+    // float current_minutes;
+    // float longitude = -96.326; // longitude of college station
+    // float latitude = 30.621;   // latitude of college station
+
+    // // algorithm to get current time and convert the minutes into hours
+    // time_t now;
+    // time(&now);
+    // struct tm *CST = localtime(&now); // this gets the current GMT time so hours and sometimes the day will need to be changed to match CST
+    // current_hour = CST->tm_hour - 6;  // get hours since midnight (0-23), the minus 6 is to correct to CST
+    // current_minutes = CST->tm_min;    // get minutes passed after the hour (0-59)
+
+    // if (current_hour < 0)
+    // { // to account for CST since the code gets the GMT
+    //     current_hour += 24;
+    // }
+    // current_hour += (current_minutes / 60); // converts minutes into hours and gets added to the current hour
+    // printf("The current time in hours is: %f \n", current_hour);
+
+    // // algorithm to get day of year (example: Jan 1 is 1, Feb 1 is 32)
+    // current_day = CST->tm_mday; // get day of month (1 to 31)
+    // if (18.0 <= current_hour && current_hour < 24)
+    // { // depending on the current hour of the GMT, the day might need to be adjusted back one
+    //     current_day -= 1;
+    // }
+    // current_month = CST->tm_mon + 1;    // get month of year (0 to 11)
+    // current_year = CST->tm_year + 1900; // get year from 1900
+    // float doy = current_day;            // variable to store the current day of year
+    // float days_in_feb = 28;             // in order to account for leap years
+    // printf("The current month, day, and year are: %d:%f:%d \n", current_month, current_day, current_year);
+    // if ((current_year % 4 == 0 && current_year % 100 != 0) || (current_year % 400 == 0))
+    // { // check for leap year
+    //     days_in_feb = 29;
+    // }
+    // // switch block to determine how many days based on which month it is
+    // switch (current_month)
+    // {
+    // case 2:
+    //     doy += 31;
+    //     break;
+    // case 3:
+    //     doy += 31 + days_in_feb;
+    //     break;
+    // case 4:
+    //     doy += 31 + days_in_feb + 31;
+    //     break;
+    // case 5:
+    //     doy += 31 + days_in_feb + 31 + 30;
+    //     break;
+    // case 6:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31;
+    //     break;
+    // case 7:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30;
+    //     break;
+    // case 8:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31;
+    //     break;
+    // case 9:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31;
+    //     break;
+    // case 10:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30;
+    //     break;
+    // case 11:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31;
+    //     break;
+    // case 12:
+    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30;
+    //     break;
+    // }
+    // printf("The current day of year is %f \n", doy);
+
+    // // algorithm to calculate azimuth and elevation angle
+    // float LSTM = -90.0; // Local solar time meridian for CST in degrees
+    // float B = (360.0 / 365.0) * (doy - 81.0);
+    // float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0); // equation of time formula
+    // float TC = 4.0 * (longitude - LSTM) + EoT;                                                                   // time correction formula
+    // float LST = current_hour + (TC / 60.0);                                                                      // local solar time formula
+    // float HRA = 15.0 * (LST - 12.0);                                                                             // hour angle is in degrees
+    // float dec_angle = 23.45 * sin(B * M_PI / 180.0);                                                             // declination angle
+    // float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+    // elevation_angle = elevation_angle * 180.0 / M_PI;                                                                                                                                                                          // converts from radians to degrees
+    // float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+    // azimuth_angle = 360 - (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                      // converts from radians to degrees
+    // printf("The elevation angle is: %f \n", elevation_angle);
+    // printf(" The azimuth angle is: %f \n", azimuth_angle);
+
+    // // use azimuth angle and elevation angle to determine where to move motors
+    // double tilt_angle = 90 - elevation_angle; // since the fresnel lens is pointing upwards in the home position, the motors will move the difference between home and the elevation angle
+    // // code to move rotation motor according the azimuth angle and the tilt motor according to the elevation
 }

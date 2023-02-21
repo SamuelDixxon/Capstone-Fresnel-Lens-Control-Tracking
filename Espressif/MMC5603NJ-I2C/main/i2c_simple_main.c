@@ -179,10 +179,10 @@ void app_main()
 {
     i2c_master_init();
 
-    // uint8_t val[2];
-    // rdMMC5x(WHO_AM_I_REG, &(val), 1);
-    // printf("%X\n", val[0]);
+    uint8_t val[2];
+    rdMMC5x(WHO_AM_I_REG, &(val), 1);
+    printf("%X\n", val[0]);
 
-    mmaMMC5_init();
+    //mmaMMC5_init();
 
 }

@@ -26,21 +26,6 @@
 #include "pid_ctrl.h"
 #include "math.h"
 
-// Enable this config,  we will print debug formated string, which in return can be captured and parsed by Serial-Studio
-#define SERIAL_STUDIO_DEBUG CONFIG_SERIAL_STUDIO_DEBUG
-#define BDC_MCPWM_TIMER_RESOLUTION_HZ 10000000                                         // 10MHz, 1 tick = 0.1us
-#define BDC_MCPWM_FREQ_HZ 25000                                                        // 25KHz PWM
-#define BDC_MCPWM_DUTY_TICK_MAdata (BDC_MCPWM_TIMER_RESOLUTION_HZ / BDC_MCPWM_FREQ_HZ) // madataimum value we can set for the duty cycle, in ticks
-#define BDC_MCPWM_GPIO_A 16
-#define BDC_MCPWM_GPIO_B 15
-
-#define WRITE_BIT I2C_MASTER_WRITE /*!< I2C master write */
-#define READ_BIT I2C_MASTER_READ   /*!< I2C master read */
-#define ACK_CHECK_EN 0x1           /*!< I2C master will check ack from slave*/
-#define ACK_CHECK_DIS 0x0          /*!< I2C master will not check ack from slave */
-#define ACK_VAL 0x0                /*!< I2C ack value */
-#define NACK_VAL 0x1               /*!< I2C nack value */
-
 /**
  * TEST CODE BRIEF
  *
@@ -84,7 +69,7 @@
 #define ACK_VAL 0x0                /*!< I2C ack value */
 #define NACK_VAL 0x1               /*!< I2C nack value */
 
-// MMA8451 defines
+// MMA8451 defines ()
 #define MMA8451_I2C_ADDR 0x1D
 #define MMA8451_OUT_X_MSB 0x01
 #define WHO_AM_I_REG 0x0D
@@ -105,7 +90,7 @@
 #define INT_EN_DRDY_MASK 0x01
 #define INT_CFG_DRDY_MASK 0x01
 
-// MMC5603 defines
+// MMC5603 defines (magnetometer sensor)
 #define MMC560_I2C_ADDR 0x30 // data for address device as slave in i2c communication
 #define DEVICE_ID 0x39       // data for distinct id correspond to device
 #define ODR 0x1A             // address for setting the on data rate
@@ -119,6 +104,16 @@
 #define mTEMP 0x09           // address for temperature data
 #define STATUS 0x18          // address for the devices status
 
+// MCP9808 defines (temperature sensor)
+
+// L2987n driver defines
+#define SERIAL_STUDIO_DEBUG CONFIG_SERIAL_STUDIO_DEBUG
+#define BDC_MCPWM_TIMER_RESOLUTION_HZ 10000000                                         // 10MHz, 1 tick = 0.1us
+#define BDC_MCPWM_FREQ_HZ 25000                                                        // 25KHz PWM
+#define BDC_MCPWM_DUTY_TICK_MAdata (BDC_MCPWM_TIMER_RESOLUTION_HZ / BDC_MCPWM_FREQ_HZ) // madataimum value we can set for the duty cycle, in ticks
+#define BDC_MCPWM_GPIO_A 16
+#define BDC_MCPWM_GPIO_B 15
+
 // HTTP Client - FreeRTOS ESP IDF - GET
 extern const uint8_t certificate_pem_start[] asm("_binary_certificate_pem_start"); // binary certificate start for ssl in https request
 extern const uint8_t certificate_pem_end[] asm("_binary_certificate_pem_end");     // binary certificate end for ssl in https request
@@ -130,8 +125,16 @@ static const char *url_time = "https://capstone-database-c7175-default-rtdb.fire
 float pwm_x; // value to get and store the pwm value for x
 float pwm_y; // value to get and store the pwm value for y
 
-// Tag for getting the data
-static const char *TAG = "i2c_restart";
+// Tag for getting the data with ESP32 logger function
+static const char *TAG = "ESP Logger: ";
+
+// variables for storing the time variables to calculate the azimuth and elevation angle
+uint8_t day;
+uint8_t month;
+uint8_t year;
+uint8_t hour;
+uint8_t minute;
+uint8_t second;
 
 // Wifi handler function and status update function
 static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
@@ -178,14 +181,65 @@ void wifi_connection()
     esp_wifi_connect();
 }
 
+// get request handler to obtain data from https request
 esp_err_t client_event_get_handler(esp_http_client_event_handle_t evt)
 {
     switch (evt->event_id)
     {
     case HTTP_EVENT_ON_DATA:
         printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data);
-        char get_data[20] = (char *)evt->data;
-        printf(get_data);
+
+        uint8_t count = 0;
+        uint8_t total_c = 0;
+        uint8_t length = evt->data_len; // length of the
+        char *data;
+        data = total_c + (char *)evt->data;
+
+        while (total_c <= length)
+        {
+            char c = *(data);
+            if (isdigit(c))
+            {
+                // Found a number
+                if (count == 0)
+                {
+                    month = (int)strtol(data, &(data), 10); // Read number
+                    printf("day %d\n", day);
+                }
+                else if (count == 1)
+                {
+                    day = (int)strtol(data, &(data), 10); // Read
+                    printf("month %d\n", month);
+                }
+                else if (count == 2)
+                {
+                    year = (int)strtol(data, &(data), 10);
+                    total_c += 3;
+                    printf("year %d\n", year);
+                }
+                else if (count == 3)
+                {
+                    hour = (int)strtol(data, &(data), 10);
+                    printf("hour %d\n", hour);
+                }
+                else if (count == 4)
+                {
+                    minute = (int)strtol(data, &(data), 10);
+                    printf("minute %d\n", minute);
+                }
+                else if (count == 5)
+                {
+                    second = (int)strtol(data, &(data), 10);
+                    printf("second %d\n", second);
+                    break;
+                }
+                count++;
+            }
+            else
+            {
+                data++;
+            }
+        }
 
         break;
 
@@ -195,6 +249,7 @@ esp_err_t client_event_get_handler(esp_http_client_event_handle_t evt)
     return ESP_OK;
 }
 
+// rest get function to perform https get request from a given url char* input
 static void rest_get(char *url)
 {
     esp_http_client_config_t config_get = {
@@ -209,6 +264,7 @@ static void rest_get(char *url)
     esp_http_client_cleanup(client);
 }
 
+// post request handler to obtain data from https request
 esp_err_t client_event_post_handler(esp_http_client_event_handle_t evt)
 {
     switch (evt->event_id)
@@ -224,6 +280,7 @@ esp_err_t client_event_post_handler(esp_http_client_event_handle_t evt)
     return ESP_OK;
 }
 
+// rest post function to perform https get request from a given url char* input
 static void post_rest_function()
 {
     esp_http_client_config_t config_post = {
@@ -242,6 +299,7 @@ static void post_rest_function()
     esp_http_client_cleanup(client);
 }
 
+// struct to store motor driver parameters
 typedef struct
 {
     bdc_motor_handle_t motor;
@@ -249,55 +307,6 @@ typedef struct
     pid_ctrl_block_handle_t pid_ctrl;
     int report_pulses;
 } motor_control_contedatat_t;
-
-// void app_main(void)
-// {
-
-//     static motor_control_contedatat_t motor_ctrl_ctdata = {
-//         .pcnt_encoder = NULL,
-//     };
-
-//     ESP_LOGI(TAG, "Create DC motor");
-//     bdc_motor_config_t motor_config = {
-//         .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-//         .pwma_gpio_num = BDC_MCPWM_GPIO_A,
-//         .pwmb_gpio_num = BDC_MCPWM_GPIO_B,
-//     };
-//     bdc_motor_mcpwm_config_t mcpwm_config = {
-//         .group_id = 0,
-//         .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-//     };
-//     bdc_motor_handle_t motor = NULL;
-//     ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config, &mcpwm_config, &motor));
-//     motor_ctrl_ctdata.motor = motor;
-
-//     ESP_LOGI(TAG, "Enable motor");
-//     ESP_ERROR_CHECK(bdc_motor_enable(motor));
-
-//     // while (1)
-//     // {
-//     //     sensor_routine();
-//     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-//     // rest_get(url);
-//     // vTaskDelay(500 / portTICK_PERIOD_MS);
-//     // ESP_ERROR_CHECK(bdc_motor_brake(motor));
-//     // if (pwm_x < 0 && pwm_x >= -100)
-//     // { // backward operation
-//     //     ESP_LOGI(TAG, "Stopping motor");
-//     //     ESP_LOGI(TAG, "Backward motor");
-//     //     ESP_ERROR_CHECK(bdc_motor_reverse(motor));
-//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / -100)));
-//     // }
-//     // else if (pwm_x > 0 && pwm_x <= 100)
-//     // { // forward operation
-//     //     ESP_LOGI(TAG, "Stopping motor");
-//     //     ESP_LOGI(TAG, "Forward motor");
-//     //     ESP_ERROR_CHECK(bdc_motor_forward(motor));
-//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / 100)));
-//     // }
-//     //   }
-// }
 
 // Structure to hold accelerometer data
 typedef struct ACCEL_DATA
@@ -527,7 +536,7 @@ static void i2c_acc_sample() // function to capture accelerometer data into stru
 {
     esp_err_t err;
     stACCEL_DATA_t acc;
-    ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMA8451 Accelerometer");
+    // ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMA8451 Accelerometer");
     // while (1)
     // {
     // Note: as configured, reading data from the output registers will start next acquisition
@@ -599,16 +608,18 @@ void app_main()
     nvs_flash_init();  // flash initialization
     wifi_connection(); // run routines to connect to the wifi
     vTaskDelay(3000 / portTICK_PERIOD_MS);
+
     rest_get(url_time);
 
-    // i2c_master_init();
-    // MMA845_init(); // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    ESP_LOGI(TAG, "Caught key time parametrics with following parameters:\nDay: %d\nMonth: %d\nYear: %d\nHour: %d\nSecond: %d\n", day, month, year, hour, second);
+
+    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
     // MMC560_init(); // initalize the magnetometer by adjusted the control registers to desired polling / resolution settings
 
     // while (1)
     // {
     //     i2c_acc_sample();
-    //     i2c_mag_sample();
     //     vTaskDelay(10000 / portTICK_PERIOD_MS); // take measurement every 10 seconds
     // }
     // // Simple test for device id
@@ -622,49 +633,49 @@ void app_main()
 
     // Jordan's Code for azimuth / elevation computation
 
-        int count = 0;
-        int day;
-        int month;
-        int year;
-        int hour;
-        int minute;
-        int second;
-        char* tz;
-        char * data = "2/20/2023, 2:34:12 PM";
+    //     int count = 0;
+    //     int day;
+    //     int month;
+    //     int year;
+    //     int hour;
+    //     int minute;
+    //     int second;
+    //     char* tz;
+    //     char * data = "2/20/2023, 2:34:12 PM";
 
-        while (*data) { // While there are more characters to process...
-        if ( isdigit(*data) ) {
-            // Found a number
-            if (count == 0) {
-                day = (int)strtol(data,&data, 10); // Read number
-            } else if ( count == 1 ) {
-                month = (int)strtol(data,&data, 10); // Read number
-            } else if ( count == 2 ) {
-                year = (int)strtol(data,&data, 10);
-            } else if ( count == 3 ) {
-                hour = (int)strtol(data,&data, 10);
-            } else if ( count == 4 ) {
-                minute = (int)strtol(data,&data, 10);
-            } else if ( count == 5 ) {
-                second = (int)strtol(data,&data, 10);
-                data++;
-                break;
-            }
+    //     while (*data) { // While there are more characters to process...
+    //     if ( isdigit(*data) ) {
+    //         // Found a number
+    //         if (count == 0) {
+    //             day = (int)strtol(data,&data, 10); // Read number
+    //         } else if ( count == 1 ) {
+    //             month = (int)strtol(data,&data, 10); // Read number
+    //         } else if ( count == 2 ) {
+    //             year = (int)strtol(data,&data, 10);
+    //         } else if ( count == 3 ) {
+    //             hour = (int)strtol(data,&data, 10);
+    //         } else if ( count == 4 ) {
+    //             minute = (int)strtol(data,&data, 10);
+    //         } else if ( count == 5 ) {
+    //             second = (int)strtol(data,&data, 10);
+    //             data++;
+    //             break;
+    //         }
 
-            count++;
+    //         count++;
 
-        } else {
-            // Otherwise, move on to the next character.
-            data++;
-        }
-    }
+    //     } else {
+    //         // Otherwise, move on to the next character.
+    //         data++;
+    //     }
+    // }
 
-        if (strcmp(data, "PM") == 0) {
-            // PM block
-        } else if (strcmp(data, "AM") == 0) {
-            AM block
-        }
-    //}
+    //     if (strcmp(data, "PM") == 0) {
+    //         // PM block
+    //     } else if (strcmp(data, "AM") == 0) {
+    //         AM block
+    //     }
+    // //}
 
     // get local time and day from library
     // double current_day;
@@ -762,3 +773,52 @@ void app_main()
     // double tilt_angle = 90 - elevation_angle; // since the fresnel lens is pointing upwards in the home position, the motors will move the difference between home and the elevation angle
     // // code to move rotation motor according the azimuth angle and the tilt motor according to the elevation
 }
+
+// void app_main(void)
+// {
+
+//     static motor_control_contedatat_t motor_ctrl_ctdata = {
+//         .pcnt_encoder = NULL,
+//     };
+
+//     ESP_LOGI(TAG, "Create DC motor");
+//     bdc_motor_config_t motor_config = {
+//         .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+//         .pwma_gpio_num = BDC_MCPWM_GPIO_A,
+//         .pwmb_gpio_num = BDC_MCPWM_GPIO_B,
+//     };
+//     bdc_motor_mcpwm_config_t mcpwm_config = {
+//         .group_id = 0,
+//         .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+//     };
+//     bdc_motor_handle_t motor = NULL;
+//     ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config, &mcpwm_config, &motor));
+//     motor_ctrl_ctdata.motor = motor;
+
+//     ESP_LOGI(TAG, "Enable motor");
+//     ESP_ERROR_CHECK(bdc_motor_enable(motor));
+
+//     // while (1)
+//     // {
+//     //     sensor_routine();
+//     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+//     // rest_get(url);
+//     // vTaskDelay(500 / portTICK_PERIOD_MS);
+//     // ESP_ERROR_CHECK(bdc_motor_brake(motor));
+//     // if (pwm_x < 0 && pwm_x >= -100)
+//     // { // backward operation
+//     //     ESP_LOGI(TAG, "Stopping motor");
+//     //     ESP_LOGI(TAG, "Backward motor");
+//     //     ESP_ERROR_CHECK(bdc_motor_reverse(motor));
+//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / -100)));
+//     // }
+//     // else if (pwm_x > 0 && pwm_x <= 100)
+//     // { // forward operation
+//     //     ESP_LOGI(TAG, "Stopping motor");
+//     //     ESP_LOGI(TAG, "Forward motor");
+//     //     ESP_ERROR_CHECK(bdc_motor_forward(motor));
+//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / 100)));
+//     // }
+//     //   }
+// }

@@ -105,6 +105,26 @@
 #define STATUS 0x18          // address for the devices status
 
 // MCP9808 defines (temperature sensor)
+#define MCP9808_I2CADDR 0x18    ///< I2C address
+#define MCP9808_REG_CONFIG 0x01 ///< MCP9808 config register
+
+#define MCP9808_REG_CONFIG_SHUTDOWN 0x0100   ///< shutdown config
+#define MCP9808_REG_CONFIG_CRITLOCKED 0x0080 ///< critical trip lock
+#define MCP9808_REG_CONFIG_WINLOCKED 0x0040  ///< alarm window lock
+#define MCP9808_REG_CONFIG_INTCLR 0x0020     ///< interrupt clear
+#define MCP9808_REG_CONFIG_ALERTSTAT 0x0010  ///< alert output status
+#define MCP9808_REG_CONFIG_ALERTCTRL 0x0008  ///< alert output control
+#define MCP9808_REG_CONFIG_ALERTSEL 0x0004   ///< alert output select
+#define MCP9808_REG_CONFIG_ALERTPOL 0x0002   ///< alert output polarity
+#define MCP9808_REG_CONFIG_ALERTMODE 0x0001  ///< alert output mode
+
+#define MCP9808_REG_UPPER_TEMP 0x02   ///< upper alert boundary
+#define MCP9808_REG_LOWER_TEMP 0x03   ///< lower alert boundery
+#define MCP9808_REG_CRIT_TEMP 0x04    ///< critical temperature
+#define MCP9808_REG_AMBIENT_TEMP 0x05 ///< ambient temperature
+#define MCP9808_REG_MANUF_ID 0x06     ///< manufacture ID
+#define MCP9808_REG_DEVICE_ID 0x07    ///< device ID
+#define MCP9808_REG_RESOLUTION 0x08   ///< resolutin
 
 // L2987n driver defines
 #define SERIAL_STUDIO_DEBUG CONFIG_SERIAL_STUDIO_DEBUG
@@ -118,8 +138,7 @@
 extern const uint8_t certificate_pem_start[] asm("_binary_certificate_pem_start"); // binary certificate start for ssl in https request
 extern const uint8_t certificate_pem_end[] asm("_binary_certificate_pem_end");     // binary certificate end for ssl in https request
 
-static const char *url_x = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Motor/x.json";       // api endpoint to get the x PWM value
-static const char *url_y = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Motor/y.json";       // api endpoint to get the y PWM value
+static const char *url_x = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Motor.json";
 static const char *url_time = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Angle/Time.json"; // api endpoint to get the time value
 
 float pwm_x; // value to get and store the pwm value for x
@@ -128,16 +147,47 @@ float pwm_y; // value to get and store the pwm value for y
 // Tag for getting the data with ESP32 logger function
 static const char *TAG = "ESP Logger: ";
 
+// struct to store motor driver parameters
+typedef struct
+{
+    bdc_motor_handle_t motor;
+    pcnt_unit_handle_t pcnt_encoder;
+    pid_ctrl_block_handle_t pid_ctrl;
+    int report_pulses;
+} motor_control_contedatat_t;
+
+// Structure to hold accelerometer data
+typedef struct ACCEL_DATA
+{
+    int16_t X;
+    int16_t Y;
+    int16_t Z;
+} stACCEL_DATA_t;
+
+// Structure to hold magnetometer data
+typedef struct MAG_DATA
+{
+    uint16_t X;
+    uint16_t Y;
+    uint16_t Z;
+} stMAG_DATA_t;
+
 // variables for storing the time variables to calculate the azimuth and elevation angle
 uint8_t day;
 uint8_t month;
-uint8_t year;
+uint16_t year;
 uint8_t hour;
 uint8_t minute;
 uint8_t second;
+uint8_t temp;
+
+stMAG_DATA_t magd;
+stACCEL_DATA_t accd;
+float tempd;
 
 // Wifi handler function and status update function
-static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void
+wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     switch (event_id)
     {
@@ -182,63 +232,77 @@ void wifi_connection()
 }
 
 // get request handler to obtain data from https request
-esp_err_t client_event_get_handler(esp_http_client_event_handle_t evt)
+esp_err_t client_event_get_handler_time(esp_http_client_event_handle_t evt)
 {
     switch (evt->event_id)
     {
     case HTTP_EVENT_ON_DATA:
-        printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data);
+
+        printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data); // printing to serial monitor our queried data
 
         uint8_t count = 0;
-        uint8_t total_c = 0;
         uint8_t length = evt->data_len; // length of the
-        char *data;
-        data = total_c + (char *)evt->data;
+        char *data = (char *)evt->data;
 
-        while (total_c <= length)
-        {
-            char c = *(data);
+        char *tz;
+
+        while (*data)
+
+        { // While there are more characters to process...
+            char c = *data;
             if (isdigit(c))
             {
                 // Found a number
                 if (count == 0)
                 {
-                    month = (int)strtol(data, &(data), 10); // Read number
-                    printf("day %d\n", day);
+                    day = (int)strtol(data, &data, 10); // Read number
                 }
                 else if (count == 1)
                 {
-                    day = (int)strtol(data, &(data), 10); // Read
-                    printf("month %d\n", month);
+                    month = (int)strtol(data, &data, 10); // Read number
                 }
                 else if (count == 2)
                 {
-                    year = (int)strtol(data, &(data), 10);
-                    total_c += 3;
-                    printf("year %d\n", year);
+                    year = (int)strtol(data, &data, 10);
+                    ESP_LOGI(TAG, "Year: %d", year);
                 }
                 else if (count == 3)
                 {
-                    hour = (int)strtol(data, &(data), 10);
-                    printf("hour %d\n", hour);
+                    hour = (int)strtol(data, &data, 10);
                 }
                 else if (count == 4)
                 {
-                    minute = (int)strtol(data, &(data), 10);
-                    printf("minute %d\n", minute);
+                    minute = (int)strtol(data, &data, 10);
                 }
                 else if (count == 5)
                 {
-                    second = (int)strtol(data, &(data), 10);
-                    printf("second %d\n", second);
+                    second = (int)strtol(data, &data, 10);
+                    data++;
                     break;
                 }
+
                 count++;
             }
             else
             {
+                // Otherwise, move on to the next character.
                 data++;
             }
+        }
+
+        if (strcmp(data, "PM") == 0)
+        {
+            // PM block
+            printf("PM\n");
+            tz = "PM";
+            printf("Night\n");
+        }
+        else if (strcmp(data, "AM") == 0)
+        {
+            // AM block
+            printf("AM\n");
+            tz = "AM";
+            printf("Day\n");
         }
 
         break;
@@ -246,18 +310,20 @@ esp_err_t client_event_get_handler(esp_http_client_event_handle_t evt)
     default:
         break;
     }
+
     return ESP_OK;
 }
 
 // rest get function to perform https get request from a given url char* input
-static void rest_get(char *url)
+static void rest_get_time(char *url)
 {
+
     esp_http_client_config_t config_get = {
 
         .url = url,
         .method = HTTP_METHOD_GET,
         .cert_pem = (const char *)certificate_pem_start,
-        .event_handler = client_event_get_handler};
+        .event_handler = client_event_get_handler_time};
 
     esp_http_client_handle_t client = esp_http_client_init(&config_get);
     esp_http_client_perform(client);
@@ -298,31 +364,6 @@ static void post_rest_function()
     esp_http_client_perform(client);
     esp_http_client_cleanup(client);
 }
-
-// struct to store motor driver parameters
-typedef struct
-{
-    bdc_motor_handle_t motor;
-    pcnt_unit_handle_t pcnt_encoder;
-    pid_ctrl_block_handle_t pid_ctrl;
-    int report_pulses;
-} motor_control_contedatat_t;
-
-// Structure to hold accelerometer data
-typedef struct ACCEL_DATA
-{
-    int16_t X;
-    int16_t Y;
-    int16_t Z;
-} stACCEL_DATA_t;
-
-// Structure to hold magnetomer data
-typedef struct MAG_DATA
-{
-    uint16_t X;
-    uint16_t Y;
-    uint16_t Z;
-} stMAG_DATA_t;
 
 /**
  * @brief test code to read i2c slave device with registered interface
@@ -411,6 +452,7 @@ static void MMA845_init()
     wrMMA845x(CTRL_REG1, &(val), 1);
 
     rdMMA845x(WHO_AM_I_REG, &(val), 1);
+    // verifying the correct device id and sending result to logger
     if (val == 0x1A)
     {
         ESP_LOGI(TAG, "MMA8245x ID:0x%X (ok)", val);
@@ -477,6 +519,7 @@ static void MMC560_init()
     uint8_t val;
     uint8_t test_read = 0x00;
     rdMMC560x(DEVICE_ID, &(val), 1);
+    // verifying the correct device id and sending result to logger
     if (val == 0x10)
     {
         ESP_LOGI(TAG, "MMC560x ID:0x%X (ok)", val);
@@ -488,8 +531,6 @@ static void MMC560_init()
 
     /*
     **  Configure mangetometer for:
-    **    - Continous sampling mode
-    **    - period of 1.2 ms for bandwith
     */
 
     val |= 0xFF;               // flip all bits to high
@@ -506,6 +547,37 @@ static void MMC560_init()
     wrMMC560x(mCTRL_REG2, &(val), 1); // writing to set the continous mode to active
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
+
+/* Read contents of a MMC5603NJ register
+---------------------------------------------------------------------------*/
+esp_err_t rdMCP980x(uint8_t reg, uint8_t *pdata, uint8_t count)
+{
+    return (i2c_master_read_slave_reg(I2C_PORT_NUM, MCP9808_I2CADDR, reg, pdata, count));
+}
+
+/* Write value to specified MCP980 register
+---------------------------------------------------------------------------*/
+esp_err_t wrMCP980x(uint8_t reg, uint8_t *pdata, uint8_t count)
+{
+    return (i2c_master_write_slave_reg(I2C_PORT_NUM, MCP9808_I2CADDR, reg, pdata, count));
+}
+
+static void MCP98_init()
+{
+    uint8_t val;
+    uint8_t test_read = 0x00;
+    // verifying the correct device id and sending result to logger
+    rdMCP980x(MCP9808_REG_DEVICE_ID, &(val), 1);
+    if (val == 0x04)
+    {
+        ESP_LOGI(TAG, "MCP98x ID:0x%X (ok)", val);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "MCP98x ID:0x%X !!!! (NOT correct; should be 0x04)", val);
+    }
+}
+
 /**
  * @brief i2c master initialization
  */
@@ -532,64 +604,64 @@ uint16_t byte_swap(uint16_t data)
     return ((data >> 8) | (data << 8));
 }
 
-static void i2c_acc_sample() // function to capture accelerometer data into struct and log
+esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct and log
 {
     esp_err_t err;
-    stACCEL_DATA_t acc;
     // ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMA8451 Accelerometer");
     // while (1)
     // {
     // Note: as configured, reading data from the output registers will start next acquisition
-    err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&acc, sizeof(acc));
+    err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&accd, sizeof(accd));
 
     // byte-swap values to make little-endian
-    acc.X = byte_swap(acc.X);
-    acc.Y = byte_swap(acc.Y);
-    acc.Z = byte_swap(acc.Z);
+    accd.X = byte_swap(accd.X);
+    accd.Y = byte_swap(accd.Y);
+    accd.Z = byte_swap(accd.Z);
 
     // shift each value to align 14-bits in 16-bit ints
-    acc.X /= 4;
-    acc.Y /= 4;
-    acc.Z /= 4;
+    accd.X /= 4;
+    accd.Y /= 4;
+    accd.Z /= 4;
 
-    float x = (acc.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
-    float y = (acc.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
-    float z = (acc.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
+    float x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
+    float y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
+    float z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
 
     ESP_LOGI(TAG, "Accelerometer err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
+    // printf("%f,%f,%f\n", x, y, z); // for CSV collection
+
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+
+    return err;
 }
 
-static void i2c_mag_sample() // function to capture magnetomer data into struct and log
+esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct and log
 {
-    esp_err_t err;
-    stMAG_DATA_t mag;
+    esp_err_t err;        // error to log errors
     uint8_t temp_reading; // temperature reading
-    uint8_t status;
-    uint8_t val;
+    uint8_t status;       // get the status of the i2c slave device
+    uint8_t val;          // val is a placeholder for writing data ( need a l-value )
 
     ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMC5603NJ Magnetometer");
     // while (1)
     // {
     // Note: as configured, reading data from the output registers will start next acquisition
 
-    err = rdMMC560x(X_MSB, (uint8_t *)&mag, sizeof(mag));
+    err = rdMMC560x(X_MSB, (uint8_t *)&magd, sizeof(magd)); // read the data into the magnetometer device
 
     // byte-swap values to make little-endian
-    mag.X = byte_swap(mag.X);
-    mag.Y = byte_swap(mag.Y);
-    mag.Z = byte_swap(mag.Z);
+    magd.X = byte_swap(magd.X); // byte swap the x value to convert from little endian to big endian
+    magd.Y = byte_swap(magd.Y); // byte swap the x value to convert from little endian to big endian
+    magd.Z = byte_swap(magd.Z); // byte swap the x value to convert from little endian to big endian
 
-    double x = ((mag.X / 1024) - 30) / 10; // convert to microtesla
-    double y = ((mag.Y / 1024) - 30) / 10; // convert to microtesla
-    double z = ((mag.Z / 1024) - 30) / 10; // convert to microtesla
+    double x = ((magd.X / 1024) - 30) / 10; // convert to microtesla
+    double y = ((magd.Y / 1024) - 30) / 10; // convert to microtesla
+    double z = ((magd.Z / 1024) - 30) / 10; // convert to microtesla
 
-    float bearing = atan2(x, y) * 180 / M_PI;
+    // float bearing = atan2(x, y) * 180 / M_PI;
 
-    ESP_LOGI(TAG, "Magnetometer Reading raw err:%d  x:%d  y:%d  z:%d", err, mag.X, mag.Y, mag.Z);
-    ESP_LOGI(TAG, "Magnetometer Reading raw err: x:%.3f y:%.3f z:%f", x, y, z);
-    ESP_LOGI(TAG, "Compass measurement: %f", bearing);
-    ESP_LOGI(TAG, "Temperature: %f", bearing);
+    ESP_LOGI(TAG, "Magnetometer Reading raw err:%d  x:%d  y:%d  z:%d", err, magd.X, magd.Y, magd.Z); // log results
+    ESP_LOGI(TAG, "Magnetometer Reading raw err: x:%.3f y:%.3f z:%f", x, y, z);                      // log results
 
     val = 0xa2;
     wrMMC560x(mCTRL_REG0, &(val), 1); // writing to set the Cmm_freq_en and Auto_SR_en registers to active while simultaneously getting temperature reading
@@ -601,27 +673,91 @@ static void i2c_mag_sample() // function to capture magnetomer data into struct 
     ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f", err, t_translated);
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+
+    return err;
+}
+
+esp_err_t i2c_temp_sample()
+{
+    esp_err_t err = ESP_OK;                                // error to log errors
+    uint16_t v;                                            // variable to read in the data from register
+    rdMCP980x(MCP9808_REG_AMBIENT_TEMP, (uint8_t *)&v, 2); // casting v to an int
+    ESP_LOGI(TAG, "RAW: %d", v);                           // debug print statement
+    v = byte_swap(v);                                      // swap the v value from little endian to big endian
+    ESP_LOGI(TAG, "BYTE SWAPPED: %d", v);                  // debug print statement
+
+    if (v == 0xFFFF) // if all the values are one, erroneous data transfer has likely occured, return fail
+    {
+        err = ESP_FAIL; // return the failed value
+        return err;
+    }
+
+    tempd = v & 0x0FFF; // mask upper 4 bits to get actual reading data
+    tempd /= 16.0;      // divide by 16 to lose decimal precision bits
+
+    if (v & 0x1000)
+    {
+        tempd -= 256;
+    }
+
+    // getting decimal places f
+    if (v & 0x0008)
+    {
+        tempd += pow(2, -1);
+    }
+    else if (v & 0x0004)
+    {
+        tempd += pow(2, -2);
+    }
+    else if (v & 0x0002)
+    {
+        tempd += pow(2, -3);
+    }
+    else if (v & 0x0001)
+    {
+        tempd += pow(2, -4);
+    }
+
+    ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f degrees C", err, tempd);
+    return err;
+}
+
+static void sensor_routine()
+{
+    esp_err_t err;
+    err = i2c_acc_sample(); // aggregating acceleration into data
+    ESP_LOGI(TAG, "Accelerometer Reading Error Bit:%d", err);
+    // esp_err_t i2c_mag_sample(); // aggreating magnetometer into data
+    // ESP_LOGI(TAG, "Magnetometer Reading Error Bit:%d", err);
+    err = i2c_temp_sample(); // aggregating temperature into data
+    ESP_LOGI(TAG, "Temperature Reading Error Bit:%d", err);
+
+    // TODO: Implement post routine to add data to database !
 }
 
 void app_main()
 {
     nvs_flash_init();  // flash initialization
     wifi_connection(); // run routines to connect to the wifi
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-    rest_get(url_time);
+    // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);
 
-    ESP_LOGI(TAG, "Caught key time parametrics with following parameters:\nDay: %d\nMonth: %d\nYear: %d\nHour: %d\nSecond: %d\n", day, month, year, hour, second);
+    // I2C Serial Communication Commands Configuration
+    i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
 
-    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
-    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    // MMC560_init(); // initalize the magnetometer by adjusted the control registers to desired polling / resolution settings
+    // Sensor initialization and control register configurations specific to device
+    MMA845_init(); // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    MMC560_init(); // initalize the magnetometer by adjusting the control registers to desired polling / resolution settings
+    MCP98_init();  // initalize the temperature sensor by adjusting the control registers to desired polling / resolution settings
 
-    // while (1)
-    // {
-    //     i2c_acc_sample();
-    //     vTaskDelay(10000 / portTICK_PERIOD_MS); // take measurement every 10 seconds
-    // }
+    // sensor_routine();
+
+    while (1)
+    {
+        i2c_temp_sample();
+        vTaskDelay(10000 / portTICK_PERIOD_MS); // take measurement every 10 seconds
+    }
     // // Simple test for device id
     // uint8_t val[2];
     // rdMMA845x(WHO_AM_I_REG, &(val), 1); // simple test to verify the right device id of the accelerometer, MMA8451Q

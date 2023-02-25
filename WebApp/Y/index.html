@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-auth-compat.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="joy.js"></script>
 
 
@@ -17,18 +19,20 @@
 
         <!-- Three buttons in a group -->
         <div class="btn-group" style="width:100%">
-            <button style="width:20%" value="off" id="b1">Data Query and Table</button>
-            <button style="width:20%" value="off" id="b2">Historical Capture</button>
-            <button style="width:20%" value="off" id="b3">Manual Control (Mouse)</button>
-            <button style="width:20%" value="off" id="b4">Manual Control (Text Input)</button>
-            <button style="width:20%" value="off" id="b5">Buildable</button>
+            <button style="width:25%" value="off" id="b1">Data Query and Table</button>
+            <button style="width:25%" value="off" id="b2">Historical Capture</button>
+            <button style="width:25%" value="off" id="b3">Manual Control (Mouse)</button>
+            <button style="width:25%" value="off" id="b4">Manual Control (Text Input)</button>
+            <!-- <button style="width:20%" value="off" id="b5">Buildable</button> -->
         </div>
 
         <script type="module">
+
             import { initializeApp } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
+            import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
             import { sleep, main } from "/index.js";
 
-            const firebaseApp = initializeApp({
+            const firebaseApp = initializeApp({ // initialize the application with key parameters
                 apiKey: "AIzaSyD-r5pSqbAmOCJXReD2wzWpUTZDK0DSAy0",
                 authDomain: "capstone-database-c7175.firebaseapp.com",
                 databaseURL: "https://capstone-database-c7175-default-rtdb.firebaseio.com",
@@ -37,9 +41,16 @@
                 messagingSenderId: "900141330072",
                 appId: "1:900141330072:web:ca69e08bdc299b68f8eaed",
                 measurementId: "G-QM1XBWXWKW"
-            }); // initializing app based on specific parameters unique to the application
+            }); // initializing app based on specific parameters unique to the application ( firebase web app )
 
-            main(firebaseApp);
+
+            const db = getDatabase(firebaseApp); // get the reference to the firebase
+            const time = ref(db, "/Flags/Angle/"); // referencing x for motor control of rotational motor
+
+            let s = new Date().toLocaleString(); // get the browser side local time from the control website and update database
+            setInterval(function () { update(time, { 'Time': s }); }, 100); // update the NoSQL database node with most current time for https req from esp32
+
+            main(firebaseApp); // open the main program ran imported from index.js file (improved modularity)
 
         </script>
 

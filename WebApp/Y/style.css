@@ -54,40 +54,103 @@ h1 {
     border: 1px solid rgb(128, 9, 0);
     margin: 0px;
     padding-bottom: 5px;
-
 }
 
 
 #string_filter_div {
     display: flex;
     justify-content: center;
+    color: white;
+    text-align: center;
+    width: 100%;
 }
 
-#numnber_range_filter_div {
+#filter_wrapper {
     display: flex;
     justify-content: center;
+    color: white;
+    text-align: center;
+    width: 100%;
+}
+
+#number_range_filter_div1 {
+    text-align: center;
+}
+
+#number_range_filter_div2 {
+    text-align: center;
+}
+
+#number_range_filter_div3 {
+    text-align: center;
 }
 
 #table_div {
-    display: flex;
-    justify-content: center;
+    text-align: center;
+    width: 100%;
 }
 
 #dashboard {
     padding-top: 10px;
 }
 
-#tbl {
+#tbl1 {
+    width: 100%;
+    height: 30%;
+    margin-top: 20px;
+}
+
+/* #tbl2 {
     display: flex;
     justify-content: center;
     width: 100%;
-    height: 70%;
-    margin-top: 20px;
+    height: 30%;
+    margin-top: 100px;
 }
+
+#tbl3 {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 30%;
+    margin-top: 100px;
+} */
 
 #box {
     padding-top: 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+#row1 {
+    color: white;
+    text-align: center;
+    font-weight: bold;
+    font-size: 20;
+    display: flex;
+    justify-content: center;
+}
+
+#row2 {
+    color: white;
+    text-align: center;
+    font-weight: bold;
+    font-size: 20;
+    display: flex;
+    justify-content: center;
+}
+
+#row3 {
+    color: white;
+    display: flex;
+    justify-content: center;
+}
+
+.t {
+    color: white;
+    font-weight: bold;
+    font-size: 20;
+    display: flex;
+    justify-content: center;
 }

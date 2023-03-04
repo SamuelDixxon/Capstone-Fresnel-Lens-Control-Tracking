@@ -26,6 +26,14 @@
 #include "pid_ctrl.h"
 #include "math.h"
 
+// STNP
+
+#include <time.h>
+#include <sys/time.h>
+#include "esp_attr.h"
+#include "esp_sleep.h"
+#include "esp_sntp.h"
+
 /**
  * TEST CODE BRIEF
  *
@@ -124,25 +132,32 @@
 #define MCP9808_REG_AMBIENT_TEMP 0x05 ///< ambient temperature
 #define MCP9808_REG_MANUF_ID 0x06     ///< manufacture ID
 #define MCP9808_REG_DEVICE_ID 0x07    ///< device ID
-#define MCP9808_REG_RESOLUTION 0x08   ///< resolutin
+#define MCP9808_REG_RESOLUTION 0x08   ///< resolution
 
 // L2987n driver defines
 #define SERIAL_STUDIO_DEBUG CONFIG_SERIAL_STUDIO_DEBUG
 #define BDC_MCPWM_TIMER_RESOLUTION_HZ 10000000                                         // 10MHz, 1 tick = 0.1us
 #define BDC_MCPWM_FREQ_HZ 25000                                                        // 25KHz PWM
 #define BDC_MCPWM_DUTY_TICK_MAdata (BDC_MCPWM_TIMER_RESOLUTION_HZ / BDC_MCPWM_FREQ_HZ) // madataimum value we can set for the duty cycle, in ticks
-#define BDC_MCPWM_GPIO_A 16
-#define BDC_MCPWM_GPIO_B 15
+
+// Motor one
+#define BDC_MCPWM_GPIO_A_1 16
+#define BDC_MCPWM_GPIO_B_1 15
+
+// Motor two
+#define BDC_MCPWM_GPIO_A_2 32
+#define BDC_MCPWM_GPIO_B_2 33
 
 // HTTP Client - FreeRTOS ESP IDF - GET
 extern const uint8_t certificate_pem_start[] asm("_binary_certificate_pem_start"); // binary certificate start for ssl in https request
 extern const uint8_t certificate_pem_end[] asm("_binary_certificate_pem_end");     // binary certificate end for ssl in https request
 
-static const char *url_x = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Motor.json";
-static const char *url_time = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Angle/Time.json"; // api endpoint to get the time value
+// HTTP Client - FreeRTOS ESP IDF - GET
+// extern const uint8_t certificate_pem_start2[] asm("_binary_certificate_pem2_start"); // binary certificate start for ssl in https request
+// extern const uint8_t certificate_pem_end2[] asm("_binary_certificate_pem2_end");     // binary certificate end for ssl in https request
 
-float pwm_x; // value to get and store the pwm value for x
-float pwm_y; // value to get and store the pwm value for y
+int8_t pwm_x; // value to get and store the pwm value for x
+int8_t pwm_y; // value to get and store the pwm value for y
 
 // Tag for getting the data with ESP32 logger function
 static const char *TAG = "ESP Logger: ";
@@ -159,31 +174,41 @@ typedef struct
 // Structure to hold accelerometer data
 typedef struct ACCEL_DATA
 {
-    int16_t X;
-    int16_t Y;
-    int16_t Z;
+    int16_t X; // X stores the data for the raw X coordinate accelerometer data
+    int16_t Y; // Y stores the data for the raw Y coordinate accelerometer data
+    int16_t Z; // Z stores the data for the raw Z coordinate accelerometer data
 } stACCEL_DATA_t;
 
 // Structure to hold magnetometer data
 typedef struct MAG_DATA
 {
-    uint16_t X;
-    uint16_t Y;
-    uint16_t Z;
+    uint16_t X; // X stores the data for the raw X coordinate magnetometer data
+    uint16_t Y; // Y stores the data for the raw Y coordinate mangetometer data
+    uint16_t Z; // Z stores the data for the raw Z coordinate magnetometer data
 } stMAG_DATA_t;
 
-// variables for storing the time variables to calculate the azimuth and elevation angle
-uint8_t day;
-uint8_t month;
-uint16_t year;
-uint8_t hour;
-uint8_t minute;
-uint8_t second;
-uint8_t temp;
+typedef struct ANGLE_DATA
+{
+    float acutal_azimuth;     // actual azimuth stores the azimuth angle as computed from magnetometer and accelerometer data ( current value )
+    float computed_azimuth;   // computed azimuth is what the azimuth is based on the time and geographical latitude/longitude ( desired value )
+    float actual_elevation;   // actual eleevation stores the elevation angle as computed from accelerometer data ( current value )
+    float computed_elevation; // computed elevation stores the elevation angle as computed from the accelerometer data( desired value )
+} stANGLE_t;
 
-stMAG_DATA_t magd;
-stACCEL_DATA_t accd;
-float tempd;
+// global variables for storing the time from NTP servers (network time protocol)
+double day;    // variable to get the day
+double month;  // variable to get the month
+double year;   // variable to get the year
+double doy;    // variable to get day of the year
+double hour;   // variable to get the hour
+double minute; // variable to get the minute
+double second; // variable to get the second
+uint8_t temp;  // variable to get the temperature
+
+stMAG_DATA_t magd;   // structure for storing magnetometer data
+stACCEL_DATA_t accd; // structure for storing accelerometer data
+stANGLE_t angd;      // structure for storing angle data
+float tempd;         // variable for storing ambient temperature
 
 // Wifi handler function and status update function
 static void
@@ -232,7 +257,7 @@ void wifi_connection()
 }
 
 // get request handler to obtain data from https request
-esp_err_t client_event_get_handler_time(esp_http_client_event_handle_t evt)
+esp_err_t client_event_get_handler_pwm(esp_http_client_event_handle_t evt)
 {
     switch (evt->event_id)
     {
@@ -241,68 +266,25 @@ esp_err_t client_event_get_handler_time(esp_http_client_event_handle_t evt)
         printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data); // printing to serial monitor our queried data
 
         uint8_t count = 0;
-        uint8_t length = evt->data_len; // length of the
         char *data = (char *)evt->data;
 
-        char *tz;
-
         while (*data)
-
-        { // While there are more characters to process...
-            char c = *data;
-            if (isdigit(c))
+        {
+            char c = *(data);
+            if ((c == '-') | isdigit(c))
             {
-                // Found a number
                 if (count == 0)
                 {
-                    day = (int)strtol(data, &data, 10); // Read number
+                    pwm_x = (int8_t)strtol(data, &data, 10);
+                    ++count;
                 }
                 else if (count == 1)
                 {
-                    month = (int)strtol(data, &data, 10); // Read number
+                    pwm_y = (int8_t)strtol(data, &data, 10);
+                    ++count;
                 }
-                else if (count == 2)
-                {
-                    year = (int)strtol(data, &data, 10);
-                    ESP_LOGI(TAG, "Year: %d", year);
-                }
-                else if (count == 3)
-                {
-                    hour = (int)strtol(data, &data, 10);
-                }
-                else if (count == 4)
-                {
-                    minute = (int)strtol(data, &data, 10);
-                }
-                else if (count == 5)
-                {
-                    second = (int)strtol(data, &data, 10);
-                    data++;
-                    break;
-                }
-
-                count++;
             }
-            else
-            {
-                // Otherwise, move on to the next character.
-                data++;
-            }
-        }
-
-        if (strcmp(data, "PM") == 0)
-        {
-            // PM block
-            printf("PM\n");
-            tz = "PM";
-            printf("Night\n");
-        }
-        else if (strcmp(data, "AM") == 0)
-        {
-            // AM block
-            printf("AM\n");
-            tz = "AM";
-            printf("Day\n");
+            ++data;
         }
 
         break;
@@ -315,15 +297,15 @@ esp_err_t client_event_get_handler_time(esp_http_client_event_handle_t evt)
 }
 
 // rest get function to perform https get request from a given url char* input
-static void rest_get_time(char *url)
+static void rest_get_pwm()
 {
-
+    static const char *url_pwm = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Motor.json";
     esp_http_client_config_t config_get = {
 
-        .url = url,
+        .url = url_pwm,
         .method = HTTP_METHOD_GET,
         .cert_pem = (const char *)certificate_pem_start,
-        .event_handler = client_event_get_handler_time};
+        .event_handler = client_event_get_handler_pwm};
 
     esp_http_client_handle_t client = esp_http_client_init(&config_get);
     esp_http_client_perform(client);
@@ -347,17 +329,65 @@ esp_err_t client_event_post_handler(esp_http_client_event_handle_t evt)
 }
 
 // rest post function to perform https get request from a given url char* input
-static void post_rest_function()
+static void post_rest_function(int sensor)
 {
     esp_http_client_config_t config_post = {
-        .url = "https://7w4yj6h87i.edataecute-api.us-east-2.amazonaws.com/default/update-database",
+        .url = "https://7w4yj6h87i.execute-api.us-east-2.amazonaws.com/default/update-database",
         .method = HTTP_METHOD_POST,
         .cert_pem = NULL,
         .event_handler = client_event_post_handler};
 
     esp_http_client_handle_t client = esp_http_client_init(&config_post);
 
-    char *post_data = "{\"sensor\":\"Magnetometer1\",\"data\":1.345}";
+    // Post data names abbreviated to save space and work efficiently at transferring data
+
+    // acronyms our shown in the comment below detailing structure of the JSON post data
+    // {
+    //     id : (Sensor ID String),
+    //     x  : (Reading from accelerometer / magnetometer units: m/s^2 or uT),
+    //     y  : (Reading from accelerometer / magnetometer units: m/s^2 or uT),
+    //     z  : (Reading from accelerometer / magnetometer units: m/s^2 or uT),
+    //     actual_azimuth_angle : (calculated azimuth angle of frame from sensors),
+    //     computed_azimuth_angle : (computed azimuth angle based on time of day and time),
+    //     actual_elevation_angle : (calculated elevation angle of frame from sensors),
+    //     computed_elevation_angle : (computed elevation angle based on time of day and time),
+    //     ambient_temperature : (temperature reading taken from on-chip magnetometer),
+    //     target_temperature : (temperature reading taken near target for reference)
+    // }
+
+    // note time will be processed in the lambda script.
+
+    double f_a = (0.784 * temp_reading) - 75; // get the translated ambient temperature
+
+    char buffer[200]; // create space for the data to be formatted into a buffer string
+
+    char *post_data = &buffer;
+
+    // sensor basically switches which data is being posted, in continuous sampling mode two calls are made to this function
+    // one of the requests posts the acceleration data (input variable sensor=0) while the other posts the magnetometer data (input variable sensor=1)
+    switch (sensor)
+    {
+    case (0):                                   // for case 0 we get the acceleration data and write the struct data
+        double x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
+        double y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
+        double z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
+        sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\"}", x, y, z, angd->computed_elevation, angd->actual_elevation, f_a); // formatting the data obtained from the accelerometer struct
+        break;
+    case (1):
+        double x = (magd.X * (9.80665 / 4096)); // converting acc.X reading to uTesla
+        double y = (magd.Y * (9.80665 / 4096)); // converting acc.Y reading to uTesla
+        double z = (magd.Z * (9.80665 / 4096)); // converting acc.Z reading to uTesla
+        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"t_a\":\"%.1f\"}", x, y, z, angd->computed_azimuth, angd->actual_azimuth, f_a); // formatting the data obtained from the magnetometer struct
+        break;
+    case (3):
+        // Testing with arbitrary data to confirm functionality prior to sending real data with I2C int sensor = 3 as input parameter for this mode
+        double arb = 1.1; // arbitrary data point
+        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\"}", arb, arb, arb, arb, arb, arb);
+        break;
+
+    default:
+        ESP_LOGE(TAG, "Error in the input parameter, input to post function should be integer, specifically: \n0 : Post Accelerometer data\n1: Post Magnetometer data \n2: Post mock data generated from random function");
+    }
 
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
     esp_http_client_set_header(client, "Content-Type", "application/json");
@@ -623,11 +653,11 @@ esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct
     accd.Y /= 4;
     accd.Z /= 4;
 
-    float x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
-    float y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
-    float z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
+    // float x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
+    // float y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
+    // float z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
 
-    ESP_LOGI(TAG, "Accelerometer err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
+    // ESP_LOGI(TAG, "Accelerometer err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
     // printf("%f,%f,%f\n", x, y, z); // for CSV collection
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
@@ -735,226 +765,389 @@ static void sensor_routine()
     // TODO: Implement post routine to add data to database !
 }
 
+void time_sync_notification_cb(struct timeval *tv)
+{
+    ESP_LOGI(TAG, "Notification of a time synchronization event");
+}
+
+static void initialize_sntp(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP");
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+#ifdef CONFIG_SNTP_TIME_SYNC_METHOD_SMOOTH
+    sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+#endif
+    sntp_init();
+}
+
+static void obtain_time(void)
+{
+
+    initialize_sntp();
+    // wait for time to be set
+    time_t now = 0;
+    struct tm timeinfo = {0};
+    int retry = 0;
+    const int retry_count = 10;
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count)
+    {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+    time(&now);
+    localtime_r(&now, &timeinfo);
+}
+void Set_SystemTime_SNTP()
+{
+    // int test_hours;
+    time_t now;
+    struct tm timeinfo;
+
+    time(&now);
+
+    localtime_r(&now, &timeinfo);
+    struct tm *local = localtime(&now);
+    // test_hours = local->tm_hour;
+    // printf("Current Hours: %d", test_hours);
+    // Is time set? If not, tm_year will be (1970 - 1900).
+    if (timeinfo.tm_year < (2016 - 1900))
+    {
+        ESP_LOGI(TAG, "Time is not set yet. Connecting to WiFi and getting time over NTP.");
+        obtain_time();
+        // update 'now' variable with current time
+        time(&now);
+    }
+}
+
+void Get_current_date_time()
+{
+    char strftime_buf[64];
+    time_t now;
+    struct tm timeinfo;
+    int test_hours, test_minutes, test_seconds, test_month, test_day, test_year, test_doy;
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    // Set timezone to Texas time
+    setenv("TZ", "UTC+6", 1);
+    tzset();
+    localtime_r(&now, &timeinfo);
+    struct tm *local = localtime(&now);
+    test_hours = local->tm_hour;
+    test_minutes = local->tm_min;
+    test_seconds = local->tm_sec;
+    test_month = local->tm_mon;
+    test_day = local->tm_mday + 1;
+    test_year = local->tm_year + 1900;
+    test_doy = local->tm_yday + 1;
+    // printf("Current Hours: %d\n", test_hours);
+    // printf("Current Mins: %d\n", test_minutes);
+    // printf("Current Seconds: %d\n", test_seconds);
+    // printf("Current Month: %d\n", test_month);
+    // printf("Current Day: %d\n", test_day);
+    // printf("Current Year: %d\n", test_year);
+    // printf("Current Day of Year: %d\n", test_doy);
+    hour = test_hours;
+    minute = test_minutes;
+    second = test_seconds;
+    month = test_month;
+    day = test_day;
+    year = test_year;
+    doy = test_doy;
+
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "The current date/time in College Station is: %s", strftime_buf);
+}
+
 void app_main()
 {
     nvs_flash_init();  // flash initialization
     wifi_connection(); // run routines to connect to the wifi
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-    // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);
+    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    //  MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
 
-    // I2C Serial Communication Commands Configuration
-    i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    // Set_SystemTime_SNTP();
+    float longitude = -96.326;
+    float latitude = 30.3; // change to actual latitude only used 30.3 for sun position calculator website
 
-    // Sensor initialization and control register configurations specific to device
-    MMA845_init(); // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    MMC560_init(); // initalize the magnetometer by adjusting the control registers to desired polling / resolution settings
-    MCP98_init();  // initalize the temperature sensor by adjusting the control registers to desired polling / resolution settings
+    post_rest_function();
 
-    // sensor_routine();
+    // while (1)
+    // {
+    //     Get_current_date_time(Current_Date_Time);
+    //     printf("current date and time is = %s\n", Current_Date_Time);
+    //     printf("Now month is: %.2f\n", month);
+    //     printf("Now day is: %.2f\n", day);
+    //     printf("Now year is: %.2f\n", year);
+    //     printf("The day of the year is: %.2f\n", doy);
+    //     printf("Now the hour is: %.2f\n", hour);
+    //     printf("Now the minute is: %.2f\n", minute);
+    //     printf("Now the second is: %.2f\n", second);
+
+    //     ANGLE CALCULATIONS
+
+    //     hour += (minute / 60.0);
+    //     //printf("Hour appended with minute is now: %f\n", hour);
+    //     float LSTM = -90.0;
+    //     float B = (360.0 / 365.0) * (doy - 81.0);
+    //     float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
+    //     float TC = 4.0 * (longitude - LSTM) + EoT;
+    //     float LST = hour + (TC / 60.0);
+    //     float HRA = 15.0 * (LST - 12.0);
+    //     float dec_angle = 23.45 * sin(B * M_PI / 180.0);
+    //     float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+    //     elevation_angle = elevation_angle * 180.0 / M_PI;
+    //     float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+    //     azimuth_angle = (azimuth_angle * 180.0 / M_PI);
+    //     angd->computed_azimuth = azimuth_angle;
+    //     angd->computed_elevation = elevation_angle;                                                                                                                                                                        // converts from radians to degrees
+    //
+    //     if (LST > 12 || HRA > 0)
+    //     {
+    //         printf("Past solar noon \n");
+    //         azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
+    //     }
+    //     printf("The current elevation angle is: %.2f \n", elevation_angle);
+    //     printf("The current azimuth angle is: %.2f\n", azimuth_angle);
+
+    //     vTaskDelay(600000 / portTICK_PERIOD_MS);
+    // }
+
+    // ORIENTATION TESTING FOR ACCELEROMETER
+
+    // for (int i = 0; i < 3; i++)
+    // {
+    //     vTaskDelay(1000);
+    //     i2c_acc_sample();
+    //     switch (i)
+    //     {
+    //     case (0):
+    //         ESP_LOGI(TAG, "X - Orientation Test x: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     case (1):
+    //         ESP_LOGI(TAG, "Y - Orientation Test y: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     case (2):
+    //         ESP_LOGI(TAG, "Y - Orientation Test z: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     default:
+    //         break;
+    //     }
+    // }
+
+    static motor_control_contedatat_t motor_ctrl_ctdata_1 = {
+        .pcnt_encoder = NULL,
+    };
+
+    static motor_control_contedatat_t motor_ctrl_ctdata_2 = {
+        .pcnt_encoder = NULL,
+    };
+
+    ESP_LOGI(TAG, "Create DC motor");
+    bdc_motor_config_t motor_config_1 = {
+        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+        .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
+        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
+    };
+
+    bdc_motor_mcpwm_config_t mcpwm_config_1 = {
+        .group_id = 0,
+        .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+    };
+
+    ESP_LOGI(TAG, "Create DC motor");
+    bdc_motor_config_t motor_config_2 = {
+        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+        .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
+        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
+    };
+
+    bdc_motor_mcpwm_config_t mcpwm_config_2 = {
+        .group_id = 0,
+        .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+    };
+
+    bdc_motor_handle_t motor_1 = NULL;
+    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_1, &mcpwm_config_1, &motor_1));
+    motor_ctrl_ctdata_1.motor = motor_1;
+
+    bdc_motor_handle_t motor_2 = NULL;
+    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_2, &mcpwm_config_2, &motor_2));
+    motor_ctrl_ctdata_2.motor = motor_2;
+
+    ESP_LOGI(TAG, "Enable motor");
+    ESP_ERROR_CHECK(bdc_motor_enable(motor_1));
+    ESP_LOGI(TAG, "Enable motor");
+    ESP_ERROR_CHECK(bdc_motor_enable(motor_2));
 
     while (1)
     {
-        i2c_temp_sample();
-        vTaskDelay(10000 / portTICK_PERIOD_MS); // take measurement every 10 seconds
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        rest_get_pwm();
+        ESP_LOGI(TAG, "PWM Value Updates: x: %d y: %d", pwm_x, pwm_y);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+
+        if (pwm_x < 0 && pwm_x >= -100)
+        { // backward operation
+            ESP_LOGI(TAG, "Stopping x motor");
+            ESP_LOGI(TAG, "Backward x motor");
+            ESP_ERROR_CHECK(bdc_motor_reverse(motor_1));
+            ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / -100)));
+        }
+        else if (pwm_x > 0 && pwm_x <= 100)
+        { // forward operation
+            ESP_LOGI(TAG, "Stopping x motor");
+            ESP_LOGI(TAG, "Forward x motor");
+            ESP_ERROR_CHECK(bdc_motor_forward(motor_1));
+            ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / 100)));
+        }
+
+        // if (pwm_y < 0 && pwm_y >= -100)
+        // { // backward operation
+        //     ESP_LOGI(TAG, "Stopping y motor");
+        //     ESP_LOGI(TAG, "Backward y motor");
+        //     ESP_ERROR_CHECK(bdc_motor_reverse(motor_2));
+        //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / -100)));
+        // }
+        // else if (pwm_y > 0 && pwm_y <= 100)
+        // { // forward operation
+        //     ESP_LOGI(TAG, "Stopping y motor");
+        //     ESP_LOGI(TAG, "Forward y motor");
+        //     ESP_ERROR_CHECK(bdc_motor_forward(motor_2));
+        //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / 100)));
+        // }
     }
-    // // Simple test for device id
-    // uint8_t val[2];
-    // rdMMA845x(WHO_AM_I_REG, &(val), 1); // simple test to verify the right device id of the accelerometer, MMA8451Q
-    // printf("%X\n", val[0]);
-    // rdMMC560x(DEVICE_ID, &(val), 1); // simple test to verify the right device id of the magnetometer, MMC5603NJ
-    // printf("%X\n", val[0]);
 
-    // /xTaskCreate(i2c_test_task, "i2c_test_task_0", 1024 * 2, (void *)0, 10, NULL); // use for when continuously polling data ! uncomment while loop in i2c_test_task
+    // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);
 
-    // Jordan's Code for azimuth / elevation computation
+    // I2C Serial Communication Commands Configuration
+    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
 
-    //     int count = 0;
-    //     int day;
-    //     int month;
-    //     int year;
-    //     int hour;
-    //     int minute;
-    //     int second;
-    //     char* tz;
-    //     char * data = "2/20/2023, 2:34:12 PM";
+    // Sensor initialization and control register configurations specific to device
+    // MMA845_init(); // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    // MMC560_init(); // initalize the magnetometer by adjusting the control registers to desired polling / resolution settings
+    // MCP98_init();  // initalize the temperature sensor by adjusting the control registers to desired polling / resolution settings
 
-    //     while (*data) { // While there are more characters to process...
-    //     if ( isdigit(*data) ) {
-    //         // Found a number
-    //         if (count == 0) {
-    //             day = (int)strtol(data,&data, 10); // Read number
-    //         } else if ( count == 1 ) {
-    //             month = (int)strtol(data,&data, 10); // Read number
-    //         } else if ( count == 2 ) {
-    //             year = (int)strtol(data,&data, 10);
-    //         } else if ( count == 3 ) {
-    //             hour = (int)strtol(data,&data, 10);
-    //         } else if ( count == 4 ) {
-    //             minute = (int)strtol(data,&data, 10);
-    //         } else if ( count == 5 ) {
-    //             second = (int)strtol(data,&data, 10);
-    //             data++;
-    //             break;
-    //         }
+    // sensor_routine(); // routine to sample all the data points and post the subsequent readings in the database
 
-    //         count++;
-
-    //     } else {
-    //         // Otherwise, move on to the next character.
-    //         data++;
-    //     }
-    // }
-
-    //     if (strcmp(data, "PM") == 0) {
-    //         // PM block
-    //     } else if (strcmp(data, "AM") == 0) {
-    //         AM block
-    //     }
-    // //}
-
-    // get local time and day from library
-    // double current_day;
-    // int current_month;
-    // int current_year;
-    // float current_hour;
-    // float current_minutes;
-    // float longitude = -96.326; // longitude of college station
-    // float latitude = 30.621;   // latitude of college station
-
-    // // algorithm to get current time and convert the minutes into hours
-    // time_t now;
-    // time(&now);
-    // struct tm *CST = localtime(&now); // this gets the current GMT time so hours and sometimes the day will need to be changed to match CST
-    // current_hour = CST->tm_hour - 6;  // get hours since midnight (0-23), the minus 6 is to correct to CST
-    // current_minutes = CST->tm_min;    // get minutes passed after the hour (0-59)
-
-    // if (current_hour < 0)
-    // { // to account for CST since the code gets the GMT
-    //     current_hour += 24;
-    // }
-    // current_hour += (current_minutes / 60); // converts minutes into hours and gets added to the current hour
-    // printf("The current time in hours is: %f \n", current_hour);
-
-    // // algorithm to get day of year (example: Jan 1 is 1, Feb 1 is 32)
-    // current_day = CST->tm_mday; // get day of month (1 to 31)
-    // if (18.0 <= current_hour && current_hour < 24)
-    // { // depending on the current hour of the GMT, the day might need to be adjusted back one
-    //     current_day -= 1;
-    // }
-    // current_month = CST->tm_mon + 1;    // get month of year (0 to 11)
-    // current_year = CST->tm_year + 1900; // get year from 1900
-    // float doy = current_day;            // variable to store the current day of year
-    // float days_in_feb = 28;             // in order to account for leap years
-    // printf("The current month, day, and year are: %d:%f:%d \n", current_month, current_day, current_year);
-    // if ((current_year % 4 == 0 && current_year % 100 != 0) || (current_year % 400 == 0))
-    // { // check for leap year
-    //     days_in_feb = 29;
-    // }
-    // // switch block to determine how many days based on which month it is
-    // switch (current_month)
+    // while (1)
     // {
-    // case 2:
-    //     doy += 31;
-    //     break;
-    // case 3:
-    //     doy += 31 + days_in_feb;
-    //     break;
-    // case 4:
-    //     doy += 31 + days_in_feb + 31;
-    //     break;
-    // case 5:
-    //     doy += 31 + days_in_feb + 31 + 30;
-    //     break;
-    // case 6:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31;
-    //     break;
-    // case 7:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30;
-    //     break;
-    // case 8:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31;
-    //     break;
-    // case 9:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31;
-    //     break;
-    // case 10:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30;
-    //     break;
-    // case 11:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31;
-    //     break;
-    // case 12:
-    //     doy += 31 + days_in_feb + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30;
-    //     break;
+    //     i2c_temp_sample();
+    //     vTaskDelay(10000 / portTICK_PERIOD_MS); // take measurement every 10 seconds
     // }
-    // printf("The current day of year is %f \n", doy);
-
-    // // algorithm to calculate azimuth and elevation angle
-    // float LSTM = -90.0; // Local solar time meridian for CST in degrees
-    // float B = (360.0 / 365.0) * (doy - 81.0);
-    // float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0); // equation of time formula
-    // float TC = 4.0 * (longitude - LSTM) + EoT;                                                                   // time correction formula
-    // float LST = current_hour + (TC / 60.0);                                                                      // local solar time formula
-    // float HRA = 15.0 * (LST - 12.0);                                                                             // hour angle is in degrees
-    // float dec_angle = 23.45 * sin(B * M_PI / 180.0);                                                             // declination angle
-    // float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
-    // elevation_angle = elevation_angle * 180.0 / M_PI;                                                                                                                                                                          // converts from radians to degrees
-    // float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
-    // azimuth_angle = 360 - (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                      // converts from radians to degrees
-    // printf("The elevation angle is: %f \n", elevation_angle);
-    // printf(" The azimuth angle is: %f \n", azimuth_angle);
-
-    // // use azimuth angle and elevation angle to determine where to move motors
-    // double tilt_angle = 90 - elevation_angle; // since the fresnel lens is pointing upwards in the home position, the motors will move the difference between home and the elevation angle
-    // // code to move rotation motor according the azimuth angle and the tilt motor according to the elevation
 }
 
-// void app_main(void)
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// useful but unused code for now
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// // rest get function to perform https get request to get the local time
+// static void rest_get_time()
 // {
+//     static const char *url_time = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Angle/Time.json"; // api endpoint to get the time value
+//     esp_http_client_config_t config_get = {
 
-//     static motor_control_contedatat_t motor_ctrl_ctdata = {
-//         .pcnt_encoder = NULL,
-//     };
+//         .url = url_time, // url time is the
+//         .method = HTTP_METHOD_GET, // method being get request data being received from the firebase query endpoint
+//         .cert_pem = (const char *)certificate_pem_start, // get the pem certificate file for communication over ssl
+//         .event_handler = client_event_get_handler_time};
 
-//     ESP_LOGI(TAG, "Create DC motor");
-//     bdc_motor_config_t motor_config = {
-//         .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-//         .pwma_gpio_num = BDC_MCPWM_GPIO_A,
-//         .pwmb_gpio_num = BDC_MCPWM_GPIO_B,
-//     };
-//     bdc_motor_mcpwm_config_t mcpwm_config = {
-//         .group_id = 0,
-//         .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-//     };
-//     bdc_motor_handle_t motor = NULL;
-//     ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config, &mcpwm_config, &motor));
-//     motor_ctrl_ctdata.motor = motor;
-
-//     ESP_LOGI(TAG, "Enable motor");
-//     ESP_ERROR_CHECK(bdc_motor_enable(motor));
-
-//     // while (1)
-//     // {
-//     //     sensor_routine();
-//     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-//     // rest_get(url);
-//     // vTaskDelay(500 / portTICK_PERIOD_MS);
-//     // ESP_ERROR_CHECK(bdc_motor_brake(motor));
-//     // if (pwm_x < 0 && pwm_x >= -100)
-//     // { // backward operation
-//     //     ESP_LOGI(TAG, "Stopping motor");
-//     //     ESP_LOGI(TAG, "Backward motor");
-//     //     ESP_ERROR_CHECK(bdc_motor_reverse(motor));
-//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / -100)));
-//     // }
-//     // else if (pwm_x > 0 && pwm_x <= 100)
-//     // { // forward operation
-//     //     ESP_LOGI(TAG, "Stopping motor");
-//     //     ESP_LOGI(TAG, "Forward motor");
-//     //     ESP_ERROR_CHECK(bdc_motor_forward(motor));
-//     //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_x / 100)));
-//     // }
-//     //   }
+//     esp_http_client_handle_t client = esp_http_client_init(&config_get);
+//     esp_http_client_perform(client);
+//     esp_http_client_cleanup(client);
 // }
+// get request handler to obtain data from https request for time
+// esp_err_t client_event_get_handler_time(esp_http_client_event_handle_t evt)
+// {
+//     switch (evt->event_id)
+//     {
+//     case HTTP_EVENT_ON_DATA:
+
+//         printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data); // printing to serial monitor our queried data
+
+//         uint8_t count = 0;
+//         uint8_t length = evt->data_len; // length of the
+//         char *data = (char *)evt->data;
+
+//         while (*data)
+
+//         { // While there are more characters to process...
+//             char c = *data;
+//             if (isdigit(c))
+//             {
+//                 // Found a number
+//                 if (count == 0)
+//                 {
+//                     month = (int)strtol(data, &data, 10); // Getting the month
+//                 }
+//                 else if (count == 1)
+//                 {
+//                     day = (int)strtol(data, &data, 10); // Getitng the day
+//                 }
+//                 else if (count == 2)
+//                 {
+//                     year = (int)strtol(data, &data, 10); // Getting the year
+//                 }
+//                 else if (count == 3)
+//                 {
+//                     hour = (int)strtol(data, &data, 10); // Getting the hour
+//                 }
+//                 else if (count == 4)
+//                 {
+//                     minute = (int)strtol(data, &data, 10); // Getting the minute
+//                 }
+//                 else if (count == 5)
+//                 {
+//                     second = (int)strtol(data, &data, 10); // Getting the second
+//                     data++;                                // increment the pointer to get to the PM / AM
+//                     break;
+//                 }
+
+//                 count++; // incrementing the counter to organize the data
+//             }
+//             else
+//             {
+//                 // Otherwise, move on to the next character.
+//                 data++; // incrementing the pointer
+//             }
+//         }
+
+//         char tz[3] = {*(data), *(data + 1), '\0'};
+//         printf(tz);
+
+//         if (strcmp(tz, "PM") == 0)
+//         {
+//             // PM block
+//             printf("PM\n");
+//             printf("Night\n");
+//             hour += 12; // to convert to military time for calculation
+//         }
+//         else if (strcmp(tz, "AM") == 0)
+//         {
+//             // AM block
+//             printf("AM\n");
+//             printf("Day\n");
+//         }
+//         break;
+
+//     default:
+//         break;
+//     }
+
+//     // Debug TAG to see parsed variables and ensure correct times...
+//     // ESP_LOGI(TAG, "Parsed data into data variables Month: %d , Day: %d , Year: %d , Hour: %d , Minute %d, Second %d", month, day, year, minute, second);
+
+//     return ESP_OK;
+// }
+
+// // Simple test for device id
+// uint8_t val[2];
+// rdMMA845x(WHO_AM_I_REG, &(val), 1); // simple test to verify the right device id of the accelerometer, MMA8451Q
+// printf("%X\n", val[0]);
+// rdMMC560x(DEVICE_ID, &(val), 1); // simple test to verify the right device id of the magnetometer, MMC5603NJ
+// printf("%X\n", val[0]);

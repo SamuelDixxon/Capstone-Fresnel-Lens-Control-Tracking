@@ -7,4 +7,7 @@
 #define SSID "TAMU_IoT"
 #define PASS ""
 
+// #define SSID "HTWWWZULU-5G"
+// #define PASS "P0reAdel"
+
 #endif

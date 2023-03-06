@@ -174,25 +174,25 @@ typedef struct
 // Structure to hold accelerometer data
 typedef struct ACCEL_DATA
 {
-    int16_t X; // X stores the data for the raw X coordinate accelerometer data
-    int16_t Y; // Y stores the data for the raw Y coordinate accelerometer data
-    int16_t Z; // Z stores the data for the raw Z coordinate accelerometer data
+    int16_t x; // X stores the data for the raw X coordinate accelerometer data
+    int16_t y; // Y stores the data for the raw Y coordinate accelerometer data
+    int16_t z; // Z stores the data for the raw Z coordinate accelerometer data
 } stACCEL_DATA_t;
 
 // Structure to hold magnetometer data
 typedef struct MAG_DATA
 {
-    uint16_t X; // X stores the data for the raw X coordinate magnetometer data
-    uint16_t Y; // Y stores the data for the raw Y coordinate mangetometer data
-    uint16_t Z; // Z stores the data for the raw Z coordinate magnetometer data
+    uint16_t x; // X stores the data for the raw X coordinate magnetometer data
+    uint16_t y; // Y stores the data for the raw Y coordinate mangetometer data
+    uint16_t z; // Z stores the data for the raw Z coordinate magnetometer data
 } stMAG_DATA_t;
 
 typedef struct ANGLE_DATA
 {
-    float acutal_azimuth;     // actual azimuth stores the azimuth angle as computed from magnetometer and accelerometer data ( current value )
-    float computed_azimuth;   // computed azimuth is what the azimuth is based on the time and geographical latitude/longitude ( desired value )
-    float actual_elevation;   // actual eleevation stores the elevation angle as computed from accelerometer data ( current value )
-    float computed_elevation; // computed elevation stores the elevation angle as computed from the accelerometer data( desired value )
+    double actual_azimuth;     // actual azimuth stores the azimuth angle as computed from magnetometer and accelerometer data ( current value )
+    double computed_azimuth;   // computed azimuth is what the azimuth is based on the time and geographical latitude/longitude ( desired value )
+    double actual_elevation;   // actual eleevation stores the elevation angle as computed from accelerometer data ( current value )
+    double computed_elevation; // computed elevation stores the elevation angle as computed from the accelerometer data( desired value )
 } stANGLE_t;
 
 // global variables for storing the time from NTP servers (network time protocol)
@@ -203,12 +203,15 @@ double doy;    // variable to get day of the year
 double hour;   // variable to get the hour
 double minute; // variable to get the minute
 double second; // variable to get the second
-uint8_t temp;  // variable to get the temperature
+float t_a;
+
+const float longitude = -96.326;
+const float latitude = 30.3; // change to actual latitude only used 30.3 for sun position calculator website
 
 stMAG_DATA_t magd;   // structure for storing magnetometer data
 stACCEL_DATA_t accd; // structure for storing accelerometer data
 stANGLE_t angd;      // structure for storing angle data
-float tempd;         // variable for storing ambient temperature
+float t_m;           // variable for storing ambient temperature
 
 // Wifi handler function and status update function
 static void
@@ -357,36 +360,41 @@ static void post_rest_function(int sensor)
 
     // note time will be processed in the lambda script.
 
-    double f_a = (0.784 * temp_reading) - 75; // get the translated ambient temperature
-
     char buffer[200]; // create space for the data to be formatted into a buffer string
 
     char *post_data = &buffer;
+    // x / y / z values for the post req
+    double x;
+    double y;
+    double z;
+    // angles for the post req
+    double c_e;
+    double a_e;
+    double c_a;
+    double a_a;
 
     // sensor basically switches which data is being posted, in continuous sampling mode two calls are made to this function
     // one of the requests posts the acceleration data (input variable sensor=0) while the other posts the magnetometer data (input variable sensor=1)
     switch (sensor)
     {
-    case (0):                                   // for case 0 we get the acceleration data and write the struct data
-        double x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
-        double y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
-        double z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
-        sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\"}", x, y, z, angd->computed_elevation, angd->actual_elevation, f_a); // formatting the data obtained from the accelerometer struct
+    case (0):                                                                                                                                                                                             // for case 0 we get the acceleration data and write the struct data to post
+        x = (accd.x * (9.80665 / 4096));                                                                                                                                                                  // converting acc.x reading to m/s^2
+        y = (accd.y * (9.80665 / 4096));                                                                                                                                                                  // converting acc.y reading to m/s^2
+        z = (accd.z * (9.80665 / 4096));                                                                                                                                                                  // convert the acc.z reading to m/s^2
+        c_e = angd.computed_elevation;                                                                                                                                                                    // get the computed elevation angle into a double variable
+        a_e = angd.actual_elevation;                                                                                                                                                                      // get the actual elevation agnle into a double variable                                                                                                                                               // converting acc.Z reading to m/s^2
+        sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, c_e, a_e, t_a, t_m); // formatting the data obtained from the accelerometer struct
         break;
-    case (1):
-        double x = (magd.X * (9.80665 / 4096)); // converting acc.X reading to uTesla
-        double y = (magd.Y * (9.80665 / 4096)); // converting acc.Y reading to uTesla
-        double z = (magd.Z * (9.80665 / 4096)); // converting acc.Z reading to uTesla
-        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"t_a\":\"%.1f\"}", x, y, z, angd->computed_azimuth, angd->actual_azimuth, f_a); // formatting the data obtained from the magnetometer struct
+    case (1):                                                                                                                                                                                            // for case 0 we get the magnetometer data and write the struct data to post
+        x = magd.x;                                                                                                                                                                                      // converting acc.x reading to uTesla
+        y = magd.y;                                                                                                                                                                                      // converting acc.y reading to uTesla
+        z = magd.z;                                                                                                                                                                                      // converting magd.z reading to uTesla
+        c_a = angd.computed_azimuth;                                                                                                                                                                     // get the computed elevation angle into a double variable
+        a_a = angd.actual_azimuth;                                                                                                                                                                       // get the actual elevation agnle into a double variable                                                                                                                                                             // converting acc.Z reading to uTesla
+        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, a_a, c_a, t_a, t_m); // formatting the data obtained from the magnetometer struct
         break;
-    case (3):
-        // Testing with arbitrary data to confirm functionality prior to sending real data with I2C int sensor = 3 as input parameter for this mode
-        double arb = 1.1; // arbitrary data point
-        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\"}", arb, arb, arb, arb, arb, arb);
-        break;
-
     default:
-        ESP_LOGE(TAG, "Error in the input parameter, input to post function should be integer, specifically: \n0 : Post Accelerometer data\n1: Post Magnetometer data \n2: Post mock data generated from random function");
+        ESP_LOGI(TAG, "Error in the input parameter, input to post function should be integer, specifically: \n0 : Post Accelerometer data\n1: Post Magnetometer data \n2: Post mock data generated from random function");
     }
 
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
@@ -470,7 +478,7 @@ esp_err_t wrMMA845x(uint8_t reg, uint8_t *pdata, uint8_t count)
 }
 
 /**
- * @brief MMA8451 initialization
+ * @brief MMA8451 initialization (Accelerometer)
  */
 static void MMA845_init()
 {
@@ -544,6 +552,9 @@ esp_err_t wrMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
     return (i2c_master_write_slave_reg(I2C_PORT_NUM, MMC560_I2C_ADDR, reg, pdata, count));
 }
 
+/**
+ * @brief MMC560 initialization (Accelerometer)
+ */
 static void MMC560_init()
 {
     uint8_t val;
@@ -644,20 +655,21 @@ esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct
     err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&accd, sizeof(accd));
 
     // byte-swap values to make little-endian
-    accd.X = byte_swap(accd.X);
-    accd.Y = byte_swap(accd.Y);
-    accd.Z = byte_swap(accd.Z);
+    accd.x = byte_swap(accd.x);
+    accd.y = byte_swap(accd.y);
+    accd.z = byte_swap(accd.z);
 
     // shift each value to align 14-bits in 16-bit ints
-    accd.X /= 4;
-    accd.Y /= 4;
-    accd.Z /= 4;
+    accd.x /= 4;
+    accd.y /= 4;
+    accd.z /= 4;
 
-    // float x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
-    // float y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
-    // float z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
+    float x = (accd.X * (9.80665 / 4096)); // converting acc.X reading to m/s^2
+    float y = (accd.Y * (9.80665 / 4096)); // converting acc.Y reading to m/s^2
+    float z = (accd.Z * (9.80665 / 4096)); // converting acc.Z reading to m/s^2
 
-    // ESP_LOGI(TAG, "Accelerometer err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
+    ESP_LOGI(TAG, "Accelerometer Reading Raw err:%d  x:%5f  y:%5f  z:%5f", err, x, y, z);
+    ESP_LOGI(TAG, "Accelerometer Reading err:%d  x:%.3f  y:%.3f  z:%.3f", err, x, y, z);
     // printf("%f,%f,%f\n", x, y, z); // for CSV collection
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
@@ -680,18 +692,18 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
     err = rdMMC560x(X_MSB, (uint8_t *)&magd, sizeof(magd)); // read the data into the magnetometer device
 
     // byte-swap values to make little-endian
-    magd.X = byte_swap(magd.X); // byte swap the x value to convert from little endian to big endian
-    magd.Y = byte_swap(magd.Y); // byte swap the x value to convert from little endian to big endian
-    magd.Z = byte_swap(magd.Z); // byte swap the x value to convert from little endian to big endian
+    magd.x = byte_swap(magd.x); // byte swap the x value to convert from little endian to big endian
+    magd.y = byte_swap(magd.z); // byte swap the x value to convert from little endian to big endian
+    magd.z = byte_swap(magd.z); // byte swap the x value to convert from little endian to big endian
 
-    double x = ((magd.X / 1024) - 30) / 10; // convert to microtesla
-    double y = ((magd.Y / 1024) - 30) / 10; // convert to microtesla
-    double z = ((magd.Z / 1024) - 30) / 10; // convert to microtesla
+    double x = ((magd.x / 1024) - 30) / 10; // convert to microtesla
+    double y = ((magd.y / 1024) - 30) / 10; // convert to microtesla
+    double z = ((magd.z / 1024) - 30) / 10; // convert to microtesla
 
     // float bearing = atan2(x, y) * 180 / M_PI;
 
-    ESP_LOGI(TAG, "Magnetometer Reading raw err:%d  x:%d  y:%d  z:%d", err, magd.X, magd.Y, magd.Z); // log results
-    ESP_LOGI(TAG, "Magnetometer Reading raw err: x:%.3f y:%.3f z:%f", x, y, z);                      // log results
+    ESP_LOGI(TAG, "Magnetometer Reading raw err:%d  x:%d  y:%d  z:%d", err, magd.x, magd.y, magd.z); // log results
+    ESP_LOGI(TAG, "Magnetometer Reading err: x:%.3f y:%.3f z:%f", x, y, z);                          // log results
 
     val = 0xa2;
     wrMMC560x(mCTRL_REG0, &(val), 1); // writing to set the Cmm_freq_en and Auto_SR_en registers to active while simultaneously getting temperature reading
@@ -699,8 +711,8 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
     ESP_LOGI(TAG, "err %d, Status %d", err, status);
     err = rdMMC560x(mTEMP, (uint8_t *)&temp_reading, 1);
     ESP_LOGI(TAG, "Temperature Reading raw err:%d  Temp:%d", err, temp_reading);
-    float t_translated = (0.784 * temp_reading) - 75;
-    ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f", err, t_translated);
+    t_m = (0.784 * temp_reading) - 75;
+    ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f", err, t_m);
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
 
@@ -712,9 +724,9 @@ esp_err_t i2c_temp_sample()
     esp_err_t err = ESP_OK;                                // error to log errors
     uint16_t v;                                            // variable to read in the data from register
     rdMCP980x(MCP9808_REG_AMBIENT_TEMP, (uint8_t *)&v, 2); // casting v to an int
-    ESP_LOGI(TAG, "RAW: %d", v);                           // debug print statement
-    v = byte_swap(v);                                      // swap the v value from little endian to big endian
-    ESP_LOGI(TAG, "BYTE SWAPPED: %d", v);                  // debug print statement
+    // ESP_LOGI(TAG, "RAW: %d", v);                           // debug print statement
+    v = byte_swap(v); // swap the v value from little endian to big endian
+    // ESP_LOGI(TAG, "BYTE SWAPPED: %d", v);                  // debug print statement
 
     if (v == 0xFFFF) // if all the values are one, erroneous data transfer has likely occured, return fail
     {
@@ -722,33 +734,34 @@ esp_err_t i2c_temp_sample()
         return err;
     }
 
-    tempd = v & 0x0FFF; // mask upper 4 bits to get actual reading data
-    tempd /= 16.0;      // divide by 16 to lose decimal precision bits
+    t_a = v & 0x0FFF; // mask upper 4 bits to get actual reading data
+    t_a /= 16.0;      // divide by 16 to lose decimal precision bits
 
+    // checking if the temperature is positive or negative
     if (v & 0x1000)
     {
-        tempd -= 256;
+        t_a -= 256;
     }
 
-    // getting decimal places f
+    // getting decimal places for increased precision
     if (v & 0x0008)
     {
-        tempd += pow(2, -1);
+        t_a += pow(2, -1);
     }
     else if (v & 0x0004)
     {
-        tempd += pow(2, -2);
+        t_a += pow(2, -2);
     }
     else if (v & 0x0002)
     {
-        tempd += pow(2, -3);
+        t_a += pow(2, -3);
     }
     else if (v & 0x0001)
     {
-        tempd += pow(2, -4);
+        t_a += pow(2, -4);
     }
 
-    ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f degrees C", err, tempd);
+    ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f degrees C", err, t_a);
     return err;
 }
 
@@ -756,11 +769,20 @@ static void sensor_routine()
 {
     esp_err_t err;
     err = i2c_acc_sample(); // aggregating acceleration into data
-    ESP_LOGI(TAG, "Accelerometer Reading Error Bit:%d", err);
-    // esp_err_t i2c_mag_sample(); // aggreating magnetometer into data
-    // ESP_LOGI(TAG, "Magnetometer Reading Error Bit:%d", err);
+    if (err != "ESP_OK")
+    {
+        ESP_LOGI(TAG, "Accelerometer Reading Error Bit:%d", err);
+    }
+    err = i2c_mag_sample(); // aggreating magnetometer into data
+    if (err != "ESP_OK")
+    {
+        ESP_LOGI(TAG, "Magnetometer Reading Error Bit:%d", err);
+    }
     err = i2c_temp_sample(); // aggregating temperature into data
-    ESP_LOGI(TAG, "Temperature Reading Error Bit:%d", err);
+    if (err != "ESP_OK")
+    {
+        ESP_LOGI(TAG, "Temperature Reading Error Bit:%d", err);
+    }
 
     // TODO: Implement post routine to add data to database !
 }
@@ -843,6 +865,7 @@ void Get_current_date_time()
     test_day = local->tm_mday + 1;
     test_year = local->tm_year + 1900;
     test_doy = local->tm_yday + 1;
+    // TIME TESTING FOR STNP TIME SYNC AND DATA
     // printf("Current Hours: %d\n", test_hours);
     // printf("Current Mins: %d\n", test_minutes);
     // printf("Current Seconds: %d\n", test_seconds);
@@ -864,59 +887,66 @@ void Get_current_date_time()
 
 void app_main()
 {
-    nvs_flash_init();  // flash initialization
-    wifi_connection(); // run routines to connect to the wifi
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
-    //  MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    // INITIALIZATIONS
+    // includes initializing flash memory, connecting to wifi, configuring the i2c sensors, setting the system time, and the motors
+    nvs_flash_init();      // flash initialization
+    wifi_connection();     // run routines to connect to the wifi
+    i2c_master_init();     // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    MMA845_init();         // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    MMC560_init();         // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
+    MCP98_init();          // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
+    Set_SystemTime_SNTP(); // configuring the system time and sync with the system network time protocol
 
-    // Set_SystemTime_SNTP();
-    float longitude = -96.326;
-    float latitude = 30.3; // change to actual latitude only used 30.3 for sun position calculator website
+    // INFINITE PROGRAM LOOP
 
-    post_rest_function();
+    while (1)
+    {
+        // ANGLE CALCULATIONS
+        Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
+        // printf("current date and time is = %s\n", Current_Date_Time);
+        // printf("Now month is: %.2f\n", month);
+        // printf("Now day is: %.2f\n", day);
+        // printf("Now year is: %.2f\n", year);
+        // printf("The day of the year is: %.2f\n", doy);
+        // printf("Now the hour is: %.2f\n", hour);
+        // printf("Now the minute is: %.2f\n", minute);
+        // printf("Now the second is: %.2f\n", second);
+        hour += (minute / 60.0);
+        // printf("Hour appended with minute is now: %f\n", hour);
+        float LSTM = -90.0;
+        float B = (360.0 / 365.0) * (doy - 81.0);
+        float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
+        float TC = 4.0 * (longitude - LSTM) + EoT;
+        float LST = hour + (TC / 60.0);
+        float HRA = 15.0 * (LST - 12.0);
+        float dec_angle = 23.45 * sin(B * M_PI / 180.0);
+        float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+        elevation_angle = elevation_angle * 180.0 / M_PI;
+        float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+        azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees
+        angd.computed_azimuth = azimuth_angle;                                                                                                                                                                                     // storing azimuth angle into the data struct
+        angd.computed_elevation = elevation_angle;                                                                                                                                                                                 // storing elevation angle into the data struct
+        if (LST > 12 || HRA > 0)
+        {
+            printf("Past solar noon \n");
+            azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
+        }
+        printf("The current elevation angle is: %.2f \n", elevation_angle);
+        printf("The current azimuth angle is: %.2f\n", azimuth_angle);
 
-    // while (1)
-    // {
-    //     Get_current_date_time(Current_Date_Time);
-    //     printf("current date and time is = %s\n", Current_Date_Time);
-    //     printf("Now month is: %.2f\n", month);
-    //     printf("Now day is: %.2f\n", day);
-    //     printf("Now year is: %.2f\n", year);
-    //     printf("The day of the year is: %.2f\n", doy);
-    //     printf("Now the hour is: %.2f\n", hour);
-    //     printf("Now the minute is: %.2f\n", minute);
-    //     printf("Now the second is: %.2f\n", second);
+        // SENSOR ROUTINE
+        sensor_routine();                                                         // this function samples all data into corresponding global variables and structs for processing
+        angd.actual_elevation = (M_PI / 2 - (atan(accd.z / acc.x)) * 180 / M_PI); // compute the actual elevation angle
+        angd.actual_azimuth = ((accd.x / acc.y) * 180 / M_PI);                    // compute the actual azimuth angle
 
-    //     ANGLE CALCULATIONS
-
-    //     hour += (minute / 60.0);
-    //     //printf("Hour appended with minute is now: %f\n", hour);
-    //     float LSTM = -90.0;
-    //     float B = (360.0 / 365.0) * (doy - 81.0);
-    //     float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
-    //     float TC = 4.0 * (longitude - LSTM) + EoT;
-    //     float LST = hour + (TC / 60.0);
-    //     float HRA = 15.0 * (LST - 12.0);
-    //     float dec_angle = 23.45 * sin(B * M_PI / 180.0);
-    //     float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
-    //     elevation_angle = elevation_angle * 180.0 / M_PI;
-    //     float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
-    //     azimuth_angle = (azimuth_angle * 180.0 / M_PI);
-    //     angd->computed_azimuth = azimuth_angle;
-    //     angd->computed_elevation = elevation_angle;                                                                                                                                                                        // converts from radians to degrees
-    //
-    //     if (LST > 12 || HRA > 0)
-    //     {
-    //         printf("Past solar noon \n");
-    //         azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
-    //     }
-    //     printf("The current elevation angle is: %.2f \n", elevation_angle);
-    //     printf("The current azimuth angle is: %.2f\n", azimuth_angle);
-
-    //     vTaskDelay(600000 / portTICK_PERIOD_MS);
-    // }
+        // POST ROUTINE
+        for (int i = 0; i < 2; i++)
+        {
+            post_rest_function(i); // posting two indices corresponding to each of the sensors
+        }
+        vTaskDelay(600000 / portTICK_PERIOD_MS); // delay for 10 seconds on the loop
+    }
 
     // ORIENTATION TESTING FOR ACCELEROMETER
 
@@ -940,88 +970,88 @@ void app_main()
     //     }
     // }
 
-    static motor_control_contedatat_t motor_ctrl_ctdata_1 = {
-        .pcnt_encoder = NULL,
-    };
+    // static motor_control_contedatat_t motor_ctrl_ctdata_1 = {
+    //     .pcnt_encoder = NULL,
+    // };
 
-    static motor_control_contedatat_t motor_ctrl_ctdata_2 = {
-        .pcnt_encoder = NULL,
-    };
+    // static motor_control_contedatat_t motor_ctrl_ctdata_2 = {
+    //     .pcnt_encoder = NULL,
+    // };
 
-    ESP_LOGI(TAG, "Create DC motor");
-    bdc_motor_config_t motor_config_1 = {
-        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-        .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
-        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
-    };
+    // ESP_LOGI(TAG, "Create DC motor");
+    // bdc_motor_config_t motor_config_1 = {
+    //     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+    //     .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
+    //     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
+    // };
 
-    bdc_motor_mcpwm_config_t mcpwm_config_1 = {
-        .group_id = 0,
-        .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-    };
+    // bdc_motor_mcpwm_config_t mcpwm_config_1 = {
+    //     .group_id = 0,
+    //     .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+    // };
 
-    ESP_LOGI(TAG, "Create DC motor");
-    bdc_motor_config_t motor_config_2 = {
-        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-        .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
-        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
-    };
+    // ESP_LOGI(TAG, "Create DC motor");
+    // bdc_motor_config_t motor_config_2 = {
+    //     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+    //     .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
+    //     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
+    // };
 
-    bdc_motor_mcpwm_config_t mcpwm_config_2 = {
-        .group_id = 0,
-        .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-    };
+    // bdc_motor_mcpwm_config_t mcpwm_config_2 = {
+    //     .group_id = 0,
+    //     .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+    // };
 
-    bdc_motor_handle_t motor_1 = NULL;
-    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_1, &mcpwm_config_1, &motor_1));
-    motor_ctrl_ctdata_1.motor = motor_1;
+    // bdc_motor_handle_t motor_1 = NULL;
+    // ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_1, &mcpwm_config_1, &motor_1));
+    // motor_ctrl_ctdata_1.motor = motor_1;
 
-    bdc_motor_handle_t motor_2 = NULL;
-    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_2, &mcpwm_config_2, &motor_2));
-    motor_ctrl_ctdata_2.motor = motor_2;
+    // bdc_motor_handle_t motor_2 = NULL;
+    // ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config_2, &mcpwm_config_2, &motor_2));
+    // motor_ctrl_ctdata_2.motor = motor_2;
 
-    ESP_LOGI(TAG, "Enable motor");
-    ESP_ERROR_CHECK(bdc_motor_enable(motor_1));
-    ESP_LOGI(TAG, "Enable motor");
-    ESP_ERROR_CHECK(bdc_motor_enable(motor_2));
+    // ESP_LOGI(TAG, "Enable motor");
+    // ESP_ERROR_CHECK(bdc_motor_enable(motor_1));
+    // ESP_LOGI(TAG, "Enable motor");
+    // ESP_ERROR_CHECK(bdc_motor_enable(motor_2));
 
-    while (1)
-    {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        rest_get_pwm();
-        ESP_LOGI(TAG, "PWM Value Updates: x: %d y: %d", pwm_x, pwm_y);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+    // while (1)
+    // {
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //     rest_get_pwm();
+    //     ESP_LOGI(TAG, "PWM Value Updates: x: %d y: %d", pwm_x, pwm_y);
+    //     vTaskDelay(500 / portTICK_PERIOD_MS);
 
-        if (pwm_x < 0 && pwm_x >= -100)
-        { // backward operation
-            ESP_LOGI(TAG, "Stopping x motor");
-            ESP_LOGI(TAG, "Backward x motor");
-            ESP_ERROR_CHECK(bdc_motor_reverse(motor_1));
-            ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / -100)));
-        }
-        else if (pwm_x > 0 && pwm_x <= 100)
-        { // forward operation
-            ESP_LOGI(TAG, "Stopping x motor");
-            ESP_LOGI(TAG, "Forward x motor");
-            ESP_ERROR_CHECK(bdc_motor_forward(motor_1));
-            ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / 100)));
-        }
+    //     if (pwm_x < 0 && pwm_x >= -100)
+    //     { // backward operation
+    //         ESP_LOGI(TAG, "Stopping x motor");
+    //         ESP_LOGI(TAG, "Backward x motor");
+    //         ESP_ERROR_CHECK(bdc_motor_reverse(motor_1));
+    //         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / -100)));
+    //     }
+    //     else if (pwm_x > 0 && pwm_x <= 100)
+    //     { // forward operation
+    //         ESP_LOGI(TAG, "Stopping x motor");
+    //         ESP_LOGI(TAG, "Forward x motor");
+    //         ESP_ERROR_CHECK(bdc_motor_forward(motor_1));
+    //         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, BDC_MCPWM_DUTY_TICK_MAdata * (double)(pwm_x / 100)));
+    //     }
 
-        // if (pwm_y < 0 && pwm_y >= -100)
-        // { // backward operation
-        //     ESP_LOGI(TAG, "Stopping y motor");
-        //     ESP_LOGI(TAG, "Backward y motor");
-        //     ESP_ERROR_CHECK(bdc_motor_reverse(motor_2));
-        //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / -100)));
-        // }
-        // else if (pwm_y > 0 && pwm_y <= 100)
-        // { // forward operation
-        //     ESP_LOGI(TAG, "Stopping y motor");
-        //     ESP_LOGI(TAG, "Forward y motor");
-        //     ESP_ERROR_CHECK(bdc_motor_forward(motor_2));
-        //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / 100)));
-        // }
-    }
+    // if (pwm_y < 0 && pwm_y >= -100)
+    // { // backward operation
+    //     ESP_LOGI(TAG, "Stopping y motor");
+    //     ESP_LOGI(TAG, "Backward y motor");
+    //     ESP_ERROR_CHECK(bdc_motor_reverse(motor_2));
+    //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / -100)));
+    // }
+    // else if (pwm_y > 0 && pwm_y <= 100)
+    // { // forward operation
+    //     ESP_LOGI(TAG, "Stopping y motor");
+    //     ESP_LOGI(TAG, "Forward y motor");
+    //     ESP_ERROR_CHECK(bdc_motor_forward(motor_2));
+    //     ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, BDC_MCPWM_DUTY_TICK_MAdata * (pwm_y / 100)));
+    // }
+    //}
 
     // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);
 
@@ -1051,12 +1081,10 @@ void app_main()
 // {
 //     static const char *url_time = "https://capstone-database-c7175-default-rtdb.firebaseio.com/Flags/Angle/Time.json"; // api endpoint to get the time value
 //     esp_http_client_config_t config_get = {
-
 //         .url = url_time, // url time is the
 //         .method = HTTP_METHOD_GET, // method being get request data being received from the firebase query endpoint
 //         .cert_pem = (const char *)certificate_pem_start, // get the pem certificate file for communication over ssl
 //         .event_handler = client_event_get_handler_time};
-
 //     esp_http_client_handle_t client = esp_http_client_init(&config_get);
 //     esp_http_client_perform(client);
 //     esp_http_client_cleanup(client);
@@ -1067,15 +1095,11 @@ void app_main()
 //     switch (evt->event_id)
 //     {
 //     case HTTP_EVENT_ON_DATA:
-
 //         printf("HTTP_EVENT_ON_DATA: %.*s\n", evt->data_len, (char *)evt->data); // printing to serial monitor our queried data
-
 //         uint8_t count = 0;
 //         uint8_t length = evt->data_len; // length of the
 //         char *data = (char *)evt->data;
-
 //         while (*data)
-
 //         { // While there are more characters to process...
 //             char c = *data;
 //             if (isdigit(c))
@@ -1107,7 +1131,6 @@ void app_main()
 //                     data++;                                // increment the pointer to get to the PM / AM
 //                     break;
 //                 }
-
 //                 count++; // incrementing the counter to organize the data
 //             }
 //             else
@@ -1116,10 +1139,8 @@ void app_main()
 //                 data++; // incrementing the pointer
 //             }
 //         }
-
 //         char tz[3] = {*(data), *(data + 1), '\0'};
 //         printf(tz);
-
 //         if (strcmp(tz, "PM") == 0)
 //         {
 //             // PM block
@@ -1134,14 +1155,11 @@ void app_main()
 //             printf("Day\n");
 //         }
 //         break;
-
 //     default:
 //         break;
 //     }
-
 //     // Debug TAG to see parsed variables and ensure correct times...
 //     // ESP_LOGI(TAG, "Parsed data into data variables Month: %d , Day: %d , Year: %d , Hour: %d , Minute %d, Second %d", month, day, year, minute, second);
-
 //     return ESP_OK;
 // }
 
@@ -1151,3 +1169,28 @@ void app_main()
 // printf("%X\n", val[0]);
 // rdMMC560x(DEVICE_ID, &(val), 1); // simple test to verify the right device id of the magnetometer, MMC5603NJ
 // printf("%X\n", val[0]);
+
+// // Testing for sensor data
+// // Populating magnetometer, temperature, and accelerometer data into the corresponding structures and variables,
+// // then consequently calling the post_rest_function with input parameter sensor
+
+// i = 0 corresponding to posting magnetometer parametric data (0)
+// i = 1 corresponding to posting accelerometer parametric data (1)
+// i = 2 testing data with invalide sensor input parameter (default i not equal to 0 or 1)
+
+// for (int i = 0; i < 3; i++)
+// { // iterating across values i=0,1,2 for testing post
+//     uint16_t d = i * 3000;
+//     int16_t a = i * 3000;
+
+//     accd.x = a; // x acceleration data
+//     accd.y = a; // y acceleration data
+//     accd.z = a; // z acceleration data
+
+//     magd.x = d; // x acceleration data
+//     magd.y = d; // y magnetometer data
+//     magd.z = d; // z magnetometer data
+
+//     post_rest_function(i);                 // calling the post method for each case of the loop
+//     vTaskDelay(1000 / portTICK_PERIOD_MS); // add a delay of one second
+// }

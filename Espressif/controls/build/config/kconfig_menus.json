@@ -4010,6 +4010,56 @@
                 "range": null,
                 "title": "Enable log that can be parsed by Serial Studio",
                 "type": "bool"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": "Hostname of the main SNTP server.",
+                "id": "SNTP_TIME_SERVER",
+                "name": "SNTP_TIME_SERVER",
+                "range": null,
+                "title": "SNTP server name",
+                "type": "string"
+            },
+            {
+                "children": [
+                    {
+                        "children": [],
+                        "depends_on": "<choice SNTP_TIME_SYNC_METHOD>",
+                        "help": null,
+                        "id": "SNTP_TIME_SYNC_METHOD_IMMED",
+                        "name": "SNTP_TIME_SYNC_METHOD_IMMED",
+                        "range": null,
+                        "title": "update time immediately when received",
+                        "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "<choice SNTP_TIME_SYNC_METHOD>",
+                        "help": null,
+                        "id": "SNTP_TIME_SYNC_METHOD_SMOOTH",
+                        "name": "SNTP_TIME_SYNC_METHOD_SMOOTH",
+                        "range": null,
+                        "title": "update time with smooth method (adjtime)",
+                        "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "<choice SNTP_TIME_SYNC_METHOD>",
+                        "help": null,
+                        "id": "SNTP_TIME_SYNC_METHOD_CUSTOM",
+                        "name": "SNTP_TIME_SYNC_METHOD_CUSTOM",
+                        "range": null,
+                        "title": "custom implementation",
+                        "type": "bool"
+                    }
+                ],
+                "depends_on": null,
+                "help": "Time synchronization method.",
+                "id": "example-configuration-time-synchronization-method",
+                "name": "SNTP_TIME_SYNC_METHOD",
+                "title": "Time synchronization method",
+                "type": "choice"
             }
         ],
         "depends_on": null,

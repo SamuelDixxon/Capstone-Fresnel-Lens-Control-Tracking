@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "runpy.py", line 194, in _run_module_as_main
+  File "runpy.py", line 87, in _run_code
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\__main__.py", line 11, in <module>
+    esptool._main()
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\__init__.py", line 1026, in _main
+    main()
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\__init__.py", line 808, in main
+    detect_flash_size(esp, args)
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\cmds.py", line 216, in detect_flash_size
+    flash_id = esp.flash_id()
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\loader.py", line 868, in flash_id
+    return self.run_spiflash_command(SPIFLASH_RDID, b"", 24)
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\loader.py", line 1250, in run_spiflash_command
+    old_spi_usr = self.read_reg(SPI_USR_REG)
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\loader.py", line 690, in read_reg
+    val, data = self.command(
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\loader.py", line 376, in command
+    p = self.read()
+  File "c:\esp\tools\python_env\idf5.0_py3.8_env\lib\site-packages\esptool\loader.py", line 308, in read
+    return next(self._slip_reader)
+StopIteration
+CMake Error at run_serial_tool.cmake:55 (message):
+  
+  c:/esp/tools/python_env/idf5.0_py3.8_env/Scripts/python.exe;;C:/Espressif/frameworks/esp-idf-v5.0/components/esptool_py/esptool/esptool.py;--chip;esp32
+  failed
+
+

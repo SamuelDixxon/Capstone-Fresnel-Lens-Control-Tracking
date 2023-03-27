@@ -1,1 +1,22 @@
-843cba00363b9c4728c1cda4310b2116828b57f7
+a5ded2e541a61115e6023e9ef766f28c5c6aeb31 a68512b6226ec5b4013e1a356e98f16884aec5c3 Samuel Dixon <samueldixon@tamu.edu> 1670023448 -0600	pull: Fast-forward
+a68512b6226ec5b4013e1a356e98f16884aec5c3 f5d765c842273b63c5e0dba0480ebbe287d65065 Samuel Dixon <samueldixon@tamu.edu> 1670023480 -0600	commit: Added 403 documents
+f5d765c842273b63c5e0dba0480ebbe287d65065 1190091b251df1efdd6e6faf225d53b766d720f2 Samuel Dixon <samueldixon@tamu.edu> 1670189355 -0600	commit: Added Subsystem Report
+1190091b251df1efdd6e6faf225d53b766d720f2 c5343e28d2396b262a446d5997004aaee2163eda Samuel Dixon <samueldixon@tamu.edu> 1670453701 -0600	commit: Updated WebApp with historical capture and query google table api elements
+c5343e28d2396b262a446d5997004aaee2163eda da37ccd232c09443a523eb20159fa71d89a690bd Samuel Dixon <samueldixon@tamu.edu> 1672167461 -0600	commit: Added new SQL integration with aws lambda and worked on front end
+da37ccd232c09443a523eb20159fa71d89a690bd 43dd4c0f9a244d9b50910452faa2a7a4324b9836 Samuel Dixon <samueldixon@tamu.edu> 1672167495 -0600	commit: Added AWS lambda code
+43dd4c0f9a244d9b50910452faa2a7a4324b9836 a3cd0317ec3ef439808a2da0eb8e50bd5bcb2bd1 Samuel Dixon <samueldixon@tamu.edu> 1672170801 -0600	commit: added filed
+a3cd0317ec3ef439808a2da0eb8e50bd5bcb2bd1 692382cc2822ca5864d6328d565b62d76024fb0d Samuel Dixon <samueldixon@tamu.edu> 1672172173 -0600	commit (merge): added changes
+692382cc2822ca5864d6328d565b62d76024fb0d 6ba2891e5035ce4d811b5e18f988850c3e689bfd Samuel Dixon <samueldixon@tamu.edu> 1673109025 -0600	commit: Added some styling fixes
+6ba2891e5035ce4d811b5e18f988850c3e689bfd e8d350227c58dcf5df34ee95faad6076e8c3385e Samuel Dixon <samueldixon@tamu.edu> 1673542133 -0600	commit: Added HTTPS request to motor control endpoint
+e8d350227c58dcf5df34ee95faad6076e8c3385e 8a19fcb8387d50921f1013c11d01004e0df3588f SamuelDixxon <samueldixon@tamu.edu> 1674161558 -0600	commit: Added password authentication for motor control and worked a bit on functional code blocks.
+8a19fcb8387d50921f1013c11d01004e0df3588f 7a3e3630b140313676f6173a595a701c67d86c67 SamuelDixxon <samueldixon@tamu.edu> 1674477756 -0600	commit: added communication to and from microcontroller
+7a3e3630b140313676f6173a595a701c67d86c67 d42a8255cefc9a6ecd507228b6ff5da4488fe4a7 Samuel Dixon <samueldixon@tamu.edu> 1675355191 -0600	commit: Added move-motors script
+d42a8255cefc9a6ecd507228b6ff5da4488fe4a7 60c1939906bb4fc38ba8768da3e54c4c447c8f95 Samuel Dixon <samueldixon@tamu.edu> 1675358393 -0600	commit: added new files
+60c1939906bb4fc38ba8768da3e54c4c447c8f95 6a772c34052eeaf36273987e69df5e5e5032621b Samuel Dixon <samueldixon@tamu.edu> 1675949435 -0600	commit: Added new project files
+6a772c34052eeaf36273987e69df5e5e5032621b 9de9d4e0612dc8aaf51219541682dd201028982d Samuel Dixon <samueldixon@tamu.edu> 1676273524 -0600	commit: Updated Espressif Scripts and added Calibration
+9de9d4e0612dc8aaf51219541682dd201028982d 5da080838d817923510233ad634a0c5e963dca00 Samuel Dixon <samueldixon@tamu.edu> 1676943962 -0600	commit: Added all files
+5da080838d817923510233ad634a0c5e963dca00 89af1caa601036a708ba746cf17d3496f2663c7d Samuel Dixon <samueldixon@tamu.edu> 1677179538 -0600	commit: Added files
+89af1caa601036a708ba746cf17d3496f2663c7d 49e720e25ebb3d1847c5e43adcb2fe4a39e65a28 Samuel Dixon <samueldixon@tamu.edu> 1677365294 -0600	commit: Updated python files with accelerometer tests
+49e720e25ebb3d1847c5e43adcb2fe4a39e65a28 36dc8ea78d624902cca42d37e3bbd57f9562545d Samuel Dixon <samueldixon@tamu.edu> 1677365914 -0600	commit: Added WebApp front end changes
+36dc8ea78d624902cca42d37e3bbd57f9562545d 843cba00363b9c4728c1cda4310b2116828b57f7 Samuel Dixon <samueldixon@tamu.edu> 1677366099 -0600	commit: Added EPS Doc
+843cba00363b9c4728c1cda4310b2116828b57f7 4bc8ff894047550b9e03c7bb40a3a82e90a63120 Samuel Dixon <samueldixon@tamu.edu> 1677716617 -0600	commit: Removed projects no longer of use and added get-time with NTP server sync for getting real time

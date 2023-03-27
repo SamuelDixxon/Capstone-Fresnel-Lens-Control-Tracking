@@ -714,6 +714,8 @@ void app_main()
     // float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
     // azimuth_angle = 360 - (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                      // converts from radians to degrees
     // printf("The elevation angle is: %f \n", elevation_angle);
+
+    
     // printf(" The azimuth angle is: %f \n", azimuth_angle);
 
     // // use azimuth angle and elevation angle to determine where to move motors

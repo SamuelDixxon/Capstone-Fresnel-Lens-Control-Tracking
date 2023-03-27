@@ -22,8 +22,8 @@
 
 // #define SSID "MyAltice 31d611"
 // #define PASS "3731-gold-55"
-#define EXAMPLE_ESP_WIFI_SSID "MyAltice 31d611"
-#define EXAMPLE_ESP_WIFI_PASS "3731-gold-55"
+#define EXAMPLE_ESP_WIFI_SSID "TAMU_IoT"
+#define EXAMPLE_ESP_WIFI_PASS ""
 
 static EventGroupHandle_t s_wifi_event_group;
 
@@ -178,6 +178,7 @@ static void initialize_sntp(void)
 #endif
     sntp_init();
 }
+
 static void obtain_time(void)
 {
 

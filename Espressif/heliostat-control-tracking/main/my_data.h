@@ -4,7 +4,7 @@
 #define SSID "MyAltice 31d611"
 #define PASS "3731-gold-55"
 
-// #define SSID "TAMU_VISITOR"
-// #define PASS ""
+#define SSID "TAMU_IoT"
+#define PASS ""
 
 #endif

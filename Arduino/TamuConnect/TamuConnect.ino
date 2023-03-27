@@ -13,8 +13,8 @@
 //Provide the RTDB payload printing info and other helper functions.
 #include "addons/RTDBHelper.h"
 #include "esp_wpa2.h" //wpa2 library for connections to Enterprise networks
+
 #define EAP_IDENTITY "samueldixon@tamu.edu" //if connecting from another corporation, use identity@organisation.domain in Eduroam 
-#define EAP_USERNAME "samueldixon@tamu.edu" //oftentimes just a repeat of the identity
 #define EAP_PASSWORD "Keeponrunning2021!" //your Eduroam password
 
 // Insert Firebase project API Key
@@ -122,41 +122,43 @@ void loop() {
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "User-Agent: ESP32\r\n" + "Connection: close\r\n\r\n");
 
     while (client.connected()) {
-      String line = client.readStringUntil('\n');
-      if (line == "\r") {
-        break;
-      }
-    }
-    String line = client.readStringUntil('\n');
-   Serial.println(line);
-  }else{
-      Serial.println("Connection unsucessful");
-    }
+      Serial.print("Connected to the datbase and ready to go");
+  //     String line = client.readStringUntil('\n');
+  //     if (line == "\r") {
+  //       break;
+  //     }
+  //   }
+  //   String line = client.readStringUntil('\n');
+  //  Serial.println(line);
+  // }else{
+  //     Serial.println("Connection unsucessful");
+  //   }
 
-      if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
-    sendDataPrevMillis = millis();
-    // Write an Int number on the database path test/int
-    if (Firebase.RTDB.setString(&fbdo, "Sensors/Magnetometer1/reading/timestamp", "hi")){
-      Serial.println("PASSED");
-      Serial.println("PATH: " + fbdo.dataPath());
-      Serial.println("TYPE: " + fbdo.dataType());
-    }
-    else {
-      Serial.println("FAILED");
-      Serial.println("REASON: " + fbdo.errorReason());
-    }
-    count++;
+  //     if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
+  //   sendDataPrevMillis = millis();
+
+  //   // Write an Int number on the database path test/int
+  //   if (Firebase.RTDB.setString(&fbdo, "Sensors/Magnetometer1/reading/timestamp", "hi")){
+  //     Serial.println("PASSED");
+  //     Serial.println("PATH: " + fbdo.dataPath());
+  //     Serial.println("TYPE: " + fbdo.dataType());
+  //   }
+  //   else {
+  //     Serial.println("FAILED");
+  //     Serial.println("REASON: " + fbdo.errorReason());
+  //   }
+  //   count++;
     
-    // Write an Float number on the database path test/float
-    if (Firebase.RTDB.setString(&fbdo, "Sensors/Magnetometer1/reading/timestamp", "success")){
-      Serial.println("PASSED");
-      Serial.println("PATH: " + fbdo.dataPath());
-      Serial.println("TYPE: " + fbdo.dataType());
-    }
-    else {
-      Serial.println("FAILED");
-      Serial.println("REASON: " + fbdo.errorReason());
-    }
-  }
+  //   // Write an Float number on the database path test/float
+  //   if (Firebase.RTDB.setString(&fbdo, "Sensors/Magnetometer1/reading/timestamp", "success")){
+  //     Serial.println("PASSED");
+  //     Serial.println("PATH: " + fbdo.dataPath());
+  //     Serial.println("TYPE: " + fbdo.dataType());
+  //   }
+  //   else {
+  //     Serial.println("FAILED");
+  //     Serial.println("REASON: " + fbdo.errorReason());
+  //   }
+  // }
   
 }

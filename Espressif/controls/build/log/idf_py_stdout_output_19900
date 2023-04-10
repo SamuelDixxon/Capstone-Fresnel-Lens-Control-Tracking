@@ -1,0 +1,112 @@
+[1/9] Performing build step for 'bootloader'
+[1/1] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\bootloader\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/sdixo/Scripts/Espressif/controls/build/bootloader/bootloader.bin"
+Bootloader binary size 0x66f0 bytes. 0x910 bytes (8%) free.
+[2/7] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/mcpwm_bdc_control_example_main.c.obj
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'post_rest_function':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:379:23: warning: initialization of 'char *' from incompatible pointer type 'char (*)[200]' [-Wincompatible-pointer-types]
+  379 |     char *post_data = &buffer;
+      |                       ^
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'MMC560_init':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:575:13: warning: unused variable 'test_read' [-Wunused-variable]
+  575 |     uint8_t test_read = 0x00;
+      |             ^~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'MCP98_init':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:626:13: warning: unused variable 'test_read' [-Wunused-variable]
+  626 |     uint8_t test_read = 0x00;
+      |             ^~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'i2c_mag_sample':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:739:40: warning: passing argument 2 of 'rdMMC560x' from incompatible pointer type [-Wincompatible-pointer-types]
+  739 |     err = rdMMC560x(MMA8451_OUT_X_MSB, (uint16_t *)&bits, sizeof(bits));
+      |                                        ^~~~~~~~~~~~~~~~~
+      |                                        |
+      |                                        uint16_t * {aka short unsigned int *}
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:557:43: note: expected 'uint8_t *' {aka 'unsigned char *'} but argument is of type 'uint16_t *' {aka 'short unsigned int *'}
+  557 | esp_err_t rdMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
+      |                                  ~~~~~~~~~^~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:741:44: warning: passing argument 2 of 'rdMMC560x' from incompatible pointer type [-Wincompatible-pointer-types]
+  741 |     err = rdMMC560x(MMA8451_OUT_X_MSB + 2, (uint16_t *)&bits, sizeof(bits));
+      |                                            ^~~~~~~~~~~~~~~~~
+      |                                            |
+      |                                            uint16_t * {aka short unsigned int *}
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:557:43: note: expected 'uint8_t *' {aka 'unsigned char *'} but argument is of type 'uint16_t *' {aka 'short unsigned int *'}
+  557 | esp_err_t rdMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
+      |                                  ~~~~~~~~~^~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:743:44: warning: passing argument 2 of 'rdMMC560x' from incompatible pointer type [-Wincompatible-pointer-types]
+  743 |     err = rdMMC560x(MMA8451_OUT_X_MSB + 4, (uint16_t *)&bits, sizeof(bits));
+      |                                            ^~~~~~~~~~~~~~~~~
+      |                                            |
+      |                                            uint16_t * {aka short unsigned int *}
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:557:43: note: expected 'uint8_t *' {aka 'unsigned char *'} but argument is of type 'uint16_t *' {aka 'short unsigned int *'}
+  557 | esp_err_t rdMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
+      |                                  ~~~~~~~~~^~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:698:13: warning: unused variable 'val' [-Wunused-variable]
+  698 |     uint8_t val;          // val is a placeholder for writing data ( need a l-value )
+      |             ^~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:697:13: warning: unused variable 'status' [-Wunused-variable]
+  697 |     uint8_t status;       // get the status of the i2c slave device
+      |             ^~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:696:13: warning: unused variable 'temp_reading' [-Wunused-variable]
+  696 |     uint8_t temp_reading; // temperature reading
+      |             ^~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'Set_SystemTime_SNTP':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:900:16: warning: unused variable 'local' [-Wunused-variable]
+  900 |     struct tm *local = localtime(&now);
+      |                ^~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'app_main':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1026:11: warning: unused variable 'tilt_seconds' [-Wunused-variable]
+ 1026 |     float tilt_seconds;
+      |           ^~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1025:11: warning: unused variable 'rot_seconds' [-Wunused-variable]
+ 1025 |     float rot_seconds;
+      |           ^~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1023:11: warning: unused variable 'tilt_scaling' [-Wunused-variable]
+ 1023 |     float tilt_scaling;
+      |           ^~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1022:11: warning: unused variable 'rot_scaling' [-Wunused-variable]
+ 1022 |     float rot_scaling;
+      |           ^~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1020:11: warning: unused variable 'next_tilt' [-Wunused-variable]
+ 1020 |     float next_tilt;
+      |           ^~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1019:11: warning: unused variable 'next_rotation' [-Wunused-variable]
+ 1019 |     float next_rotation;
+      |           ^~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1016:11: warning: unused variable 'current_tilt' [-Wunused-variable]
+ 1016 |     float current_tilt = 90.0;
+      |           ^~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1015:11: warning: unused variable 'current_rotation' [-Wunused-variable]
+ 1015 |     float current_rotation = 0.0;
+      |           ^~~~~~~~~~~~~~~~
+At top level:
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:837:13: warning: 'sensor_routine' defined but not used [-Wunused-function]
+  837 | static void sensor_routine()
+      |             ^~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:642:13: warning: 'i2c_master_init' defined but not used [-Wunused-function]
+  642 | static void i2c_master_init()
+      |             ^~~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:623:13: warning: 'MCP98_init' defined but not used [-Wunused-function]
+  623 | static void MCP98_init()
+      |             ^~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:572:13: warning: 'MMC560_init' defined but not used [-Wunused-function]
+  572 | static void MMC560_init()
+      |             ^~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:497:13: warning: 'MMA845_init' defined but not used [-Wunused-function]
+  497 | static void MMA845_init()
+      |             ^~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:349:13: warning: 'post_rest_function' defined but not used [-Wunused-function]
+  349 | static void post_rest_function(int sensor)
+      |             ^~~~~~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:315:13: warning: 'rest_get_pwm' defined but not used [-Wunused-function]
+  315 | static void rest_get_pwm()
+      |             ^~~~~~~~~~~~
+[3/7] Linking C static library esp-idf\main\libmain.a
+[4/7] Generating ld/sections.ld
+[5/7] Linking CXX executable controls.elf
+[6/7] Generating binary image from built executable
+esptool.py v4.4
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated C:/Users/sdixo/Scripts/Espressif/controls/build/controls.bin
+[7/7] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 partition --type app C:/Users/sdixo/Scripts/Espressif/controls/build/partition_table/partition-table.bin C:/Users/sdixo/Scripts/Espressif/controls/build/controls.bin"
+controls.bin binary size 0x354d0 bytes. Smallest app partition is 0x100000 bytes. 0xcab30 bytes (79%) free.

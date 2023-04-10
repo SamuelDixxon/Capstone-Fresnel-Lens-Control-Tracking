@@ -27,7 +27,6 @@
 #include "math.h"
 
 // STNP
-
 #include <time.h>
 #include <sys/time.h>
 #include "esp_attr.h"
@@ -62,8 +61,8 @@
  */
 
 #define SAMPLE_PERIOD_MS 200
-#define I2C_SCL_IO 27          // 19               /*!< gpio number for I2C master clock */
-#define I2C_SDA_IO 26          // 18               /*!< gpio number for I2C master data  */
+#define I2C_SCL_IO 22          // 19               /*!< gpio number for I2C master clock */
+#define I2C_SDA_IO 21          // 18               /*!< gpio number for I2C master data  */
 #define I2C_FREQ_HZ 100000     /*!< I2C master clock frequency */
 #define I2C_PORT_NUM I2C_NUM_1 /*!< I2C port number for master dev */
 #define I2C_TX_BUF_DISABLE 0   /*!< I2C master do not need buffer */
@@ -77,7 +76,7 @@
 #define ACK_VAL 0x0                /*!< I2C ack value */
 #define NACK_VAL 0x1               /*!< I2C nack value */
 
-// MMA8451 defines ()
+// MMA8451 defines (acceleromter sensor)
 #define MMA8451_I2C_ADDR 0x1D
 #define MMA8451_OUT_X_MSB 0x01
 #define WHO_AM_I_REG 0x0D
@@ -99,25 +98,23 @@
 #define INT_CFG_DRDY_MASK 0x01
 
 // MMC5603 defines (magnetometer sensor)
-#define MMC560_I2C_ADDR 0x30 // data for address device as slave in i2c communication
-#define DEVICE_ID 0x39       // data for distinct id correspond to device
-#define ODR 0x1A             // address for setting the on data rate
-#define TEMP 0x09            // address for getting the temperature
-#define X_MSB 0x00           // most significant byte for the x reading
-#define Y_MSB 0x02           // most significant byte for the y reading
-#define Z_MSB 0x04           // most significant byte for the z reading
-#define mCTRL_REG0 0x1B      // device address for control reg 0
-#define mCTRL_REG1 0x1C      // device address for control reg 1
-#define mCTRL_REG2 0x1D      // device address for control reg 2
-#define mTEMP 0x09           // address for temperature data
-#define STATUS 0x18          // address for the devices status
+#define MMC560_X_MSB 0x00     // most significant byte for the x reading
+#define MMC560_TEMP 0x09      // address for getting the temperature
+#define MMC560_STATUS 0x18    // address for the devices status
+#define MMC560_ODR 0x1A       // address for setting the on data rate
+#define MMC560_CTRL_REG0 0x1B // device address for control reg 0
+#define MMC560_CTRL_REG1 0x1C // device address for control reg 1
+#define MMC560_CTRL_REG2 0x1D // device address for control reg 2
+#define MMC560_I2C_ADDR 0x30  // data for address device as slave in i2c communication
+#define MMC560_WHO_AM_I 0x39  // data for distinct id correspond to device
+#define MMC560_CHIP_ID 0x10   // device id stored in 0x39 MMC560_WHO_AM_I register
 
 // MCP9808 defines (temperature sensor)
-#define MCP9808_I2CADDR 0x18          ///< I2C address
-#define MCP9808_REG_CONFIG 0x01       ///< MCP9808 config register
-#define MCP9808_REG_AMBIENT_TEMP 0x05 ///< ambient temperature
-#define MCP9808_REG_DEVICE_ID 0x07    ///< device ID
-#define MCP9808_REG_RESOLUTION 0x08   ///< resolution
+#define MCP9808_I2CADDR 0x18              ///< I2C address
+#define MCP9808_REG_CONFIG 0x01           ///< MCP9808 config register
+#define MCP9808_REG_AMBIENT_TEMP 0x05     ///< ambient temperature
+#define MCP9808_REG_MMC560_DEVICE_ID 0x07 ///< device ID
+#define MCP9808_REG_RESOLUTION 0x08       ///< resolution
 
 // L2987n driver defines
 #define SERIAL_STUDIO_DEBUG CONFIG_SERIAL_STUDIO_DEBUG
@@ -126,12 +123,12 @@
 #define BDC_MCPWM_DUTY_TICK_MAdata (BDC_MCPWM_TIMER_RESOLUTION_HZ / BDC_MCPWM_FREQ_HZ) // madataimum value we can set for the duty cycle, in ticks
 
 // Motor one
-#define BDC_MCPWM_GPIO_A_1 5
-#define BDC_MCPWM_GPIO_B_1 18
+#define BDC_MCPWM_GPIO_A_1 33
+#define BDC_MCPWM_GPIO_B_1 32
 
 // Motor two
-#define BDC_MCPWM_GPIO_A_2 32
-#define BDC_MCPWM_GPIO_B_2 33
+#define BDC_MCPWM_GPIO_A_2 19
+#define BDC_MCPWM_GPIO_B_2 18
 
 // HTTP Client - FreeRTOS ESP IDF - GET
 extern const uint8_t certificate_pem_start[] asm("_binary_certificate_pem_start"); // binary certificate start for ssl in https request
@@ -146,6 +143,8 @@ int8_t pwm_y; // value to get and store the pwm value for y
 
 // Tag for getting the data with ESP32 logger function
 static const char *TAG = "ESP Logger: ";
+
+int8_t hard_coded_angles[10] = {10, 20, 30, 40, 50, 60, 50, 40, 30, 20, 10};
 
 // struct to store motor driver parameters
 typedef struct
@@ -164,19 +163,11 @@ typedef struct ACCEL_DATA
     int16_t z; // Z stores the data for the raw Z coordinate accelerometer data
 } stACCEL_DATA_t;
 
-// Structure to hold magnetometer data
-typedef struct MAG_DATA
-{
-    uint16_t x; // X stores the data for the raw X coordinate magnetometer data
-    uint16_t y; // Y stores the data for the raw Y coordinate mangetometer data
-    uint16_t z; // Z stores the data for the raw Z coordinate magnetometer data
-} stMAG_DATA_t;
-
 typedef struct MAG_CAL
 {
-    double x; // X stores the data for the calibrated X coordinate magnetometer data (conversion made in sensor routine with hard coded offsets)
-    double y; // Y stores the data for the calibrated Y coordinate mangetometer data (conversion made in sensor routine with hard coded offsets)
-    double z; // Z stores the data for the calibrated Z coordinate magnetometer data (conversion made in sensor routine with hard coded offsets)
+    float x; // X stores the data for the calibrated X coordinate magnetometer data (conversion made in sensor routine with hard coded offsets)
+    float y; // Y stores the data for the calibrated Y coordinate mangetometer data (conversion made in sensor routine with hard coded offsets)
+    float z; // Z stores the data for the calibrated Z coordinate magnetometer data (conversion made in sensor routine with hard coded offsets)
 } stMAG_CAL_t;
 
 typedef struct ANGLE_DATA
@@ -186,6 +177,9 @@ typedef struct ANGLE_DATA
     double actual_elevation;   // actual eleevation stores the elevation angle as computed from accelerometer data ( current value )
     double computed_elevation; // computed elevation stores the elevation angle as computed from the accelerometer data( desired value )
 } stANGLE_t;
+
+// global boolean for wifi connection
+bool IP_check = false;
 
 // global variables for storing the time from NTP servers (network time protocol)
 double day;    // variable to get the day
@@ -200,7 +194,7 @@ double t_a;    // ambient temperature from magnetometer on chip sensor
 const float longitude = -96.326; // latitude of college station for computed elevation/azimuth angle
 const float latitude = 30.3;     // longitude of college station for computed elevation/azimuth anglechange to actual latitude only used 30.3 for sun position calculator website
 
-stMAG_DATA_t magd;   // structure for storing magnetometer data
+// stMAG_DATA_t magd;   // structure for storing magnetometer data
 stACCEL_DATA_t accd; // structure for storing accelerometer data
 stANGLE_t angd;      // structure for storing angle data
 stMAG_CAL_t mcal;    // structure for calibrating the magnetometer data
@@ -226,13 +220,16 @@ wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t
         printf("WiFi connecting ... \n");
         break;
     case WIFI_EVENT_STA_CONNECTED:
-        printf("WiFi connected ... \n");
+        printf("WiFi connected\n");
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
-        printf("WiFi lost connection ... \n");
+        printf("WiFi lost connection\n");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        esp_restart();
         break;
     case IP_EVENT_STA_GOT_IP:
-        printf("WiFi got IP ... \n\n");
+        printf("WiFi got IP\n");
+        IP_check = true;
         break;
     default:
         break;
@@ -395,9 +392,9 @@ static void post_rest_function(int sensor)
         sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, c_e, a_e, t_a, t_m); // formatting the data obtained from the accelerometer struct
         break;
     case (1):                                                                                                                                                                                            // for case 0 we get the magnetometer data and write the struct data to post
-        x = magd.x;                                                                                                                                                                                      // converting acc.x reading to uTesla
-        y = magd.y;                                                                                                                                                                                      // converting acc.y reading to uTesla
-        z = magd.z;                                                                                                                                                                                      // converting magd.z reading to uTesla
+        x = mcal.x;                                                                                                                                                                                      // converting acc.x reading to uTesla
+        y = mcal.y;                                                                                                                                                                                      // converting acc.y reading to uTesla
+        z = mcal.z;                                                                                                                                                                                      // converting magd.z reading to uTesla
         c_a = angd.computed_azimuth;                                                                                                                                                                     // get the computed elevation angle into a double variable
         a_a = angd.actual_azimuth;                                                                                                                                                                       // get the actual elevation agnle into a double variable                                                                                                                                                             // converting acc.Z reading to uTesla
         sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, a_a, c_a, t_a, t_m); // formatting the data obtained from the magnetometer struct
@@ -476,6 +473,8 @@ static esp_err_t i2c_master_write_slave_reg(i2c_port_t i2c_num, uint8_t i2c_addr
 ---------------------------------------------------------------------------*/
 esp_err_t rdMMA845x(uint8_t reg, uint8_t *pdata, uint8_t count)
 {
+    // MMA8451_I2C_ADDR - 0x1D
+    // I2C_PORT_NUM - 1
     return (i2c_master_read_slave_reg(I2C_PORT_NUM, MMA8451_I2C_ADDR, reg, pdata, count));
 }
 
@@ -483,6 +482,8 @@ esp_err_t rdMMA845x(uint8_t reg, uint8_t *pdata, uint8_t count)
 ---------------------------------------------------------------------------*/
 esp_err_t wrMMA845x(uint8_t reg, uint8_t *pdata, uint8_t count)
 {
+    // MMA8451_I2C_ADDR - 0x1D
+    // I2C_PORT_NUM - 1
     return (i2c_master_write_slave_reg(I2C_PORT_NUM, MMA8451_I2C_ADDR, reg, pdata, count));
 }
 
@@ -551,6 +552,8 @@ static void MMA845_init()
 ---------------------------------------------------------------------------*/
 esp_err_t rdMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
 {
+    // MMC560_I2C_ADDR - 0x30
+    // I2C_PORT_NUM - 1
     return (i2c_master_read_slave_reg(I2C_PORT_NUM, MMC560_I2C_ADDR, reg, pdata, count));
 }
 
@@ -558,6 +561,8 @@ esp_err_t rdMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
 ---------------------------------------------------------------------------*/
 esp_err_t wrMMC560x(uint8_t reg, uint8_t *pdata, uint8_t count)
 {
+    // MMC560_I2C_ADDR - 0x30
+    // I2C_PORT_NUM - 1
     return (i2c_master_write_slave_reg(I2C_PORT_NUM, MMC560_I2C_ADDR, reg, pdata, count));
 }
 
@@ -568,9 +573,10 @@ static void MMC560_init()
 {
     uint8_t val;
     uint8_t test_read = 0x00;
-    rdMMC560x(DEVICE_ID, &(val), 1);
+    rdMMC560x(MMC560_WHO_AM_I, &(val), 1);
+
     // verifying the correct device id and sending result to logger
-    if (val == 0x10)
+    if (val == MMC560_CHIP_ID)
     {
         ESP_LOGI(TAG, "MMC560x ID:0x%X (ok)", val);
     }
@@ -580,25 +586,110 @@ static void MMC560_init()
     }
 
     /*
-    **  Configure mangetometer for:
+
+   Sending the device into reset mode by accessing control register 1, information from the datasheet:
+
+   Software Reset. Writing “1”will cause the part to reset, similar to power-up. It will clear all registers
+   and also re-read OTP as part of its startup routine. The power on time is 20mS.
+
+   */
+
+    val = 0x80;
+    wrMMC560x(MMC560_CTRL_REG1, &(val), 1); // writing to send the device to a reset state where current will flow in the coil and calibrate the device
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+
+    /*
+
+    Setting the set bit to true, information from the datasheet:
+
+    Writing a 1 into this location will cause the chip to do the Set operation, which will allow large set
+    current to flow through the sensor coils for 375ns. This bit is self-cleared at the end of Set
+    operation.
+
     */
 
-    val |= 0xFF;                           // flip all bits to high
-    wrMMC560x(ODR, &(val), 1);             // write for maximum output data rate
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // delay for a second
-    val = 0x80;                            // write the binary value 10100000 to control register 0
-    wrMMC560x(mCTRL_REG0, &(val), 1);      // writing to set the Cmm_freq_en
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // delay for a second
-    val |= 0x20;
-    ESP_LOGI(TAG, "updated val %d", val);
-    wrMMC560x(mCTRL_REG0, &(val), 1);      // writing to set the to_SR_en registers to active
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // delay for a second
-    val = 0x03;                            // write the binary value 00000011 to control register 1
-    wrMMC560x(mCTRL_REG1, &(val), 1);      // writing to set the bandwidth corresponding to period of 1.2 ms
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // delay for a second
-    val = 0x10;                            // writing the binary value 00010000 to control register 2
-    wrMMC560x(mCTRL_REG2, &(val), 1);      // writing to set the continous mode to active
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    val = 0x08;
+    wrMMC560x(MMC560_CTRL_REG0, &(val), 1); // writing to send the device to a reset state where current will flow in the coil and calibrate the device
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+
+    /*
+
+        Setting the set bit to true, information from the datasheet:
+
+        Writing a 1 into this location will cause the chip to do the set operation, which will allow large set
+        current to flow through the sensor coils for 375ns. This bit is self-cleared at the end of Set
+        operation.
+
+    */
+
+    val = 0x10;
+    wrMMC560x(MMC560_CTRL_REG0, &(val), 1); // writing to send the device to a reset state where current will flow in the coil and calibrate the device
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+
+    /*
+    **  Configure mangetometer for:
+    **      - ODR (On data rate) :
+    **      - Bandwidth (BW0 & BW1) :
+    **
+    */
+
+    val |= 0xFF;                      // set the value of 0xFF to change ODR to for maximum on data rate
+    wrMMC560x(MMC560_ODR, &(val), 1); // write the val to the on data rate register
+
+    /*
+
+    Setting the Cmm_freq_en bit to high in control register 0 information from datasheet:
+
+    Writing a 1 into this location will start the calculation of the measurement period according to the ODR.
+    This bit should be set before continuous-mode measurements are started. This bit is self cleared after the
+    measurement period is calculated by internal circuits.
+
+    */
+
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+    val = 0x80;                             // set the value of 0x80 to change Cmm_freq_en to high
+    wrMMC560x(MMC560_CTRL_REG0, &(val), 1); // writing to set the Cmm_freq_en
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+
+    /*
+
+    Setting the bandwidth measurement in the control register 1 information from datasheet:
+
+    These bandwidth selection bits adjust the length of the decimation filter. They control the duration of each measurement.
+
+                                    +-----+-----+-------+
+                                    | BW1 | BW0 | Rate  |
+                                    +-----+-----+-------+
+                                    | 0   | 0   | 6.6ms |
+                                    +-----+-----+-------+
+                                    | 0   | 1   | 3.5ms |
+                                    +-----+-----+-------+
+                                    | 1   | 0   | 2.0ms |
+                                    +-----+-----+-------+
+                                    | 1   | 1   | 1.2ms |
+                                    +-----+-----+-------+
+
+    Note: X/Y/Z channel measurements are taken sequentially. Delay Time among those measurements is 1/3 of the Measurement Time defined in the table.
+
+    */
+
+    val = 0x03;                             // set value to 0x03 to change the bandwidth config rate of 1.2 ms (1.2*3=3.6ms total for x,y,z)
+    wrMMC560x(MMC560_CTRL_REG1, &(val), 1); // writing to set the bandwidth corresponding to period of 1.2 ms
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
+
+    /*
+
+    Setting the Cmm_en bit to true, which sets the device into continuous measurement mode, information from the datasheet:
+
+    The device will enter continuous mode, if ODR has been set to a non-zero value and a 1 has
+    been written into Cmm_freq_en. The internal counter will start counting as well since this bit
+    is set.
+
+    */
+
+    val = 0x10;                             // set value to 0x10 to change device into enabling continous mode measurements
+    wrMMC560x(MMC560_CTRL_REG2, &(val), 1); // writing to set the continous mode to active
+    vTaskDelay(100 / portTICK_PERIOD_MS);   // delay for a tenth of a second
 }
 
 /* Read contents of a MMC5603NJ register
@@ -620,7 +711,7 @@ static void MCP98_init()
     uint8_t val;
     uint8_t test_read = 0x00;
     // verifying the correct device id and sending result to logger
-    rdMCP980x(MCP9808_REG_DEVICE_ID, &(val), 1);
+    rdMCP980x(MCP9808_REG_MMC560_DEVICE_ID, &(val), 1);
     if (val == 0x04)
     {
         ESP_LOGI(TAG, "MCP98x ID:0x%X (ok)", val);
@@ -662,7 +753,7 @@ esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct
     esp_err_t err;
     // Note: as configured, reading data from the output registers will start next acquisition
     err = rdMMA845x(MMA8451_OUT_X_MSB, (uint8_t *)&accd, sizeof(accd));
-    ESP_LOGI(TAG, "Error bit for reading the magnetometer data: %d", err);
+    ESP_LOGI(TAG, "Error bit for reading the accelerometer data i2c read: %d", err);
 
     // byte-swap values to make little-endian
     accd.x = byte_swap(accd.x);
@@ -670,16 +761,16 @@ esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct
     accd.z = byte_swap(accd.z);
 
     // shift each value to align 14-bits in 16-bit ints
-    accd.x /= 4;
-    accd.y /= 4;
-    accd.z /= 4;
+    accd.x /= 4; // divide by two is the equivalent of logical shift right or shaving off 2 bits
+    accd.y /= 4; // divide by two is the equivalent of logical shift right or shaving off 2 bits
+    accd.z /= 4; // divide by two is the equivalent of logical shift right or shaving off 2 bits
 
     float x = (accd.x * (9.80665 / 4096)); // converting acc.x reading to m/s^2
     float y = (accd.y * (9.80665 / 4096)); // converting acc.y reading to m/s^2
     float z = (accd.z * (9.80665 / 4096)); // converting acc.z reading to m/s^2
 
-    ESP_LOGI(TAG, "Accelerometer Reading Raw err:%d  x:%d  y:%d  z:%d", err, accd.x, accd.y, accd.z); // log the raw accelerometer readings
-    ESP_LOGI(TAG, "Accelerometer Reading err:%d  x:%.3f  y:%.3f  z:%.3f", err, x, y, z);              // log the converted accelerometer readings
+    // ESP_LOGI(TAG, "Accelerometer Reading Raw err:%d  x:%d  y:%d  z:%d", err, accd.x, accd.y, accd.z); // log the raw accelerometer readings
+    ESP_LOGI(TAG, "Accelerometer Reading err:%d  x:%.3f  y:%.3f  z:%.3f", err, x, y, z); // log the converted accelerometer readings
     // printf("%f,%f,%f\n", x, y, z); // for CSV collection in testing
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS)); // delay by the sample period
     return err;
@@ -687,51 +778,49 @@ esp_err_t i2c_acc_sample() // function to capture accelerometer data into struct
 
 esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct and log
 {
-    esp_err_t err;        // error to log errors
-    uint8_t temp_reading; // temperature reading
-    uint8_t status;       // get the status of the i2c slave device
-    uint8_t val;          // val is a placeholder for writing data ( need a l-value )
+    esp_err_t err; // error to log errors
+
+    int32_t x; // x placeholder for raw data
+    int32_t y; // y placeholder for raw data
+    int32_t z; // z placeholder for raw data
 
     ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMC5603NJ Magnetometer");
-    // while (1)
-    // {
-    // Note: as configured, reading data from the output registers will start next acquisition
 
-    // attempting a single read for the magnetometer x, y, z data register
-    // val |= 0x03;                      // flip all bits to high
-    // wrMMC560x(mCTRL_REG0, &(val), 1); // write for maximum output data rate
-    uint16_t bits;
-    uint32_t bits_cont;
-    uint8_t d;
-    uint32_t manipulated;
+    /*
 
-    // err = rdMMC560x(X_MSB, (uint16_t *)&magd, sizeof(magd)); // read the data into the magnetometer device
+    Bit Wrangling code below acquired partially from reference code:
+    https://github.com/adafruit/Adafruit_MMC56x3/blob/main/Adafruit_MMC56x3.cpp#L117
 
-    err = rdMMC560x(X_MSB, (uint16_t *)&bits, sizeof(bits)); // reading x - values (upper)
-    bits = byte_swap(bits);                                  // byte-swap values to make little-endian
-    bits_cont = 0x0000 | bits;                               // containerize into larger container
-    err = rdMMC560x(0x06, (uint8_t *)&d, sizeof(d));         // reading x - values (lower)
-    manipulated = (0x0000) | (bits_cont << 4) | (d >> 4);    // bit wrangling to get the proper data structure
-    ESP_LOGI(TAG, "After manipulation, the acquired value is %lu", manipulated);
-    magd.x = manipulated;                                    // store x bit wrangled data into struct
-    err = rdMMC560x(Y_MSB, (uint16_t *)&bits, sizeof(bits)); // read the y - values (upper)
-    bits = byte_swap(bits);                                  // byte-swap values to make little-endian
-    bits_cont = 0x0000 | bits;                               // containerize into larger container
-    err = rdMMC560x(0x07, (uint8_t *)&d, sizeof(d));         // reading y - values (lower)
-    manipulated = (0x0000) | (bits << 4) | (d >> 4);         // bit wrangling to get the proper data structure
-    magd.y = manipulated;                                    // store y bit wrangled data into struct
-    err = rdMMC560x(Z_MSB, (uint16_t *)&bits, sizeof(bits)); // read the z values (upper)
-    bits = byte_swap(bits);                                  // byte-swap values to make little-endian
-    bits_cont = 0x0000 | bits;                               // containerize into larger container
-    err = rdMMC560x(0x08, (uint8_t *)&d, sizeof(d));         // reading z - values (lower)
-    manipulated = (0x0000) | (bits_cont << 4) | (d >> 4);    // bit wrangling to get the proper data structure
-    magd.z = manipulated;                                    // store z bit wrangled data into struct
+    */
 
-    // double x = ((magd.x / 1024) - 30) / 10; // convert to microtesla
-    // double y = ((magd.y / 1024) - 30) / 10; // convert to microtesla
-    // double z = ((magd.z / 1024) - 30) / 10; // convert to microtesla
+    uint8_t buffer[9]; // creating a buffer for the 9 bytes of data containing 20-bit x,y,z data respectfully across 3 registers each
 
-    double hi_cal[3] = {(((magd.x / 1024) - 30) / 10) - hard_iron[0], (((magd.y / 1024) - 30) / 10) - hard_iron[1], (((magd.z / 1024) - 30) / 10) - hard_iron[2]};
+    err = rdMMC560x(MMC560_X_MSB, (uint8_t *)&buffer, 9); // check for errors in reading in the data
+    while (err == ESP_FAIL)
+    {
+        ESP_LOGI(TAG, "The device failed to read key parametric data from x,y,z 20-bit register fields, retrying in 5 seconds");
+        err = rdMMC560x(MMC560_X_MSB, (uint8_t *)&buffer, 9); // check for errors in reading in the data
+    }
+
+    // perform bit wrangling on the data seen in the X, Y, Z registers
+
+    x = (uint32_t)buffer[0] << 12 | (uint32_t)buffer[1] << 4 |
+        (uint32_t)buffer[6] >> 4;
+    y = (uint32_t)buffer[2] << 12 | (uint32_t)buffer[3] << 4 |
+        (uint32_t)buffer[7] >> 4;
+    z = (uint32_t)buffer[4] << 12 | (uint32_t)buffer[5] << 4 |
+        (uint32_t)buffer[8] >> 4;
+
+    x -= (uint32_t)1 << 19;
+    y -= (uint32_t)1 << 19;
+    z -= (uint32_t)1 << 19;
+
+    mcal.x = (float)x * 0.00625; // scale to uT by LSB in datasheet
+    mcal.y = (float)y * 0.00625; //
+    mcal.z = (float)z * 0.00625;
+
+    // ESP_LOGI(TAG, "Magnetometer Decoded err: %d  x: %f  y: %f  z:%f", err, mcal.x, mcal.y, mcal.z); // log result for calibrated/scaled reading
+    float hi_cal[3] = {mcal.x - hard_iron[0], mcal.y - hard_iron[1], mcal.z - hard_iron[2]};
 
     for (int i = 0; i < 3; i++)
     {
@@ -758,18 +847,8 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
         angd.actual_azimuth = 360 + angd.actual_azimuth;
     }
 
-    ESP_LOGI(TAG, "Magnetometer Reading raw err: %d  x: %d  y: %d  z: %d", err, magd.x, magd.y, magd.z);                  // log result for the raw reading
-    ESP_LOGI(TAG, "Magnetometer Reading Calibrated and Scaled err: %d  x: %f  y: %f  z:%f", err, mcal.x, mcal.y, mcal.z); // log result for calibrated/scaled reading
-    ESP_LOGI(TAG, "Magnetometer compass measurement reading: %f", angd.actual_azimuth);                                   // log result for compass reading
-
-    // val = 0xa2;
-    // wrMMC560x(mCTRL_REG0, &(val), 1); // writing to set the Cmm_freq_en and Auto_SR_en registers to active while simultaneously getting temperature reading
-    // err = rdMMC560x(0x09, (uint8_t *)&status, sizeof(status));
-    // ESP_LOGI(TAG, "err %d, Status %d", err, status);
-    // err = rdMMC560x(mTEMP, (uint8_t *)&temp_reading, 1);
-    // ESP_LOGI(TAG, "Temperature Reading raw err:%d  Temp:%d", err, temp_reading);
-    // t_m = (0.784 * temp_reading) - 75;
-    // ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f", err, t_m);
+    // ESP_LOGI(TAG, "Magnetometer Reading Calibrated and Scaled err: %d  x: %f  y: %f  z:%f", err, mcal.x, mcal.y, mcal.z); // log result for calibrated/scaled reading
+    ESP_LOGI(TAG, "Magnetometer compass measurement reading: %f", angd.actual_azimuth); // log result for compass reading
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
 
@@ -778,48 +857,27 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
 
 esp_err_t i2c_temp_sample()
 {
-    esp_err_t err = ESP_OK;                                // error to log errors
-    uint16_t v;                                            // variable to read in the data from register
-    rdMCP980x(MCP9808_REG_AMBIENT_TEMP, (uint8_t *)&v, 2); // casting v to an int
-    // ESP_LOGI(TAG, "RAW: %d", v);                           // debug print statement
-    v = byte_swap(v); // swap the v value from little endian to big endian
-    // ESP_LOGI(TAG, "BYTE SWAPPED: %d", v);                  // debug print statement
+    esp_err_t err = ESP_OK;                                      // error to log errors
+    uint16_t t;                                                  // variable to read in the data from register
+    err = rdMCP980x(MCP9808_REG_AMBIENT_TEMP, (uint8_t *)&t, 2); // casting v to an int
+    // t = byte_swap(t);                                            // swap the v value from little endian to big endian
 
-    if (v == 0xFFFF) // if all the values are one, erroneous data transfer has likely occured, return fail
+    if (t != 0xFFFF) // all one values across both registers indicates an error
     {
-        err = ESP_FAIL; // return the failed value
-        return err;
+        t_a = t & 0x0FFF; // get the significant bits into the float object
+        t_a /= 16.0;      // shave off some of the bits
+        if (t & 0x1000)   // check to see if the sign bit is 1
+        {
+            t_a -= 256; // if the sign bit is 1 , complement all the bits and subtract (twos complement)
+        };
+        t_a = t_a * 9.0 / 5.0 + 32; // convert from Celsius to Fahrenheit
     }
-
-    t_a = v & 0x0FFF; // mask upper 4 bits to get actual reading data
-    t_a /= 16.0;      // divide by 16 to lose decimal precision bits
-
-    // checking if the temperature is positive or negative
-    if (v & 0x1000)
+    else
     {
-        t_a -= 256;
+        err = -1; // fail the error otherwise, as all 1's across both registers indicates an error
     }
-
-    // getting decimal places for increased precision
-    if (v & 0x0008)
-    {
-        t_a += pow(2, -1);
-    }
-    else if (v & 0x0004)
-    {
-        t_a += pow(2, -2);
-    }
-    else if (v & 0x0002)
-    {
-        t_a += pow(2, -3);
-    }
-    else if (v & 0x0001)
-    {
-        t_a += pow(2, -4);
-    }
-
     ESP_LOGI(TAG, "Temperature Reading err:%d  Temp:%f degrees C", err, t_a);
-    return err;
+    return err; // return the error in the main program to validate functionality of each function block
 }
 
 static void sensor_routine()
@@ -828,17 +886,17 @@ static void sensor_routine()
     err = i2c_acc_sample(); // aggregating accelerometer data into data struct
     if (err != ESP_OK)
     { // logging error if exists for temperature sensor
-        ESP_LOGI(TAG, "Accelerometer Reading Error Bit:%d", err);
+        ESP_LOGE(TAG, "Accelerometer Reading Error Bit:%d", err);
     }
     err = i2c_mag_sample(); // aggregating magnetometer data into data struct
     if (err != ESP_OK)
     { // logging error if exists for temperature sensor
-        ESP_LOGI(TAG, "Magnetometer Reading Error Bit:%d", err);
+        ESP_LOGE(TAG, "Magnetometer Reading Error Bit:%d", err);
     }
     err = i2c_temp_sample(); // aggregating temperature data into data struct
     if (err != ESP_OK)
     { // logging error if exists for temperature sensor
-        ESP_LOGI(TAG, "Temperature Reading Error Bit:%d", err);
+        ESP_LOGE(TAG, "Temperature Reading Error Bit:%d", err);
     }
 }
 
@@ -942,169 +1000,198 @@ void Get_current_date_time()
 
 void app_main()
 {
-
+    // printf("Starting Up right now\n");
     // INITIALIZATIONS
     // includes initializing flash memory, connecting to wifi, configuring the 3 sensors via I2C, setting the system time, and the motors
-    nvs_flash_init();  // flash initialization
-    wifi_connection(); // run routines to connect to the wifi
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
-    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    // MMC560_init();     // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
-    // // // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
-
-    // while (1)
+    nvs_flash_init(); // flash initialization
+    // wifi_connection(); // run routines to connect to the wifi
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // if (IP_check == false)
     // {
-    //     esp_err_t mag_samp = i2c_mag_sample(); // collect the i2c magnetometer data
-    //     esp_err_t acc_samp = i2c_acc_sample(); // collect the i2c accelerometer dara
-    //     ESP_ERROR_CHECK(mag_samp);             // check for errors in the magnetometer
-    //     ESP_ERROR_CHECK(acc_samp);             // check for errors in the accelerometer
-    //     vTaskDelay(5000 / portTICK_PERIOD_MS); // delay by 5 seconds for another collection
+    //     printf("Restarting in 2 seconds to connect to IP\n");
+    //     vTaskDelay(2000 / portTICK_PERIOD_MS);
+    //     esp_restart();
     // }
-
-    Set_SystemTime_SNTP(); // configuring the system time and sync with the system network time protocol
-    // Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
-
-    ESP_LOGI(TAG, "Create DC motor 1");
-    bdc_motor_config_t motor1_config = {
-        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-        .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
-        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
-    };
-    bdc_motor_config_t motor2_config = {
-        .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-        .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
-        .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
-    };
-    bdc_motor_mcpwm_config_t mcpwm_config = {
-        .group_id = 0,
-        .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-    };
-
-    // Instantiating the motor handles
-    bdc_motor_handle_t motor_1 = NULL;
-    bdc_motor_handle_t motor_2 = NULL;
-    // creating new motor control pwm to drive the motors
-    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor1_config, &mcpwm_config, &motor_1));
-    ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor2_config, &mcpwm_config, &motor_2));
-    // Enableing the motor 1
-    ESP_LOGI(TAG, "Enable motor 1 and 2 object handles");
-    ESP_ERROR_CHECK(bdc_motor_enable(motor_1));
-    ESP_ERROR_CHECK(bdc_motor_enable(motor_2));
-
-    // INFINITE PROGRAM LOOP
-
-    // starting home position of frame
-    float current_rotation = 0.0;
-    float current_tilt = 90.0;
-
-    // variables for desired motor position
-    float next_rotation;
-    float next_tilt;
-
+    i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    MMC560_init(); // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
+    //                // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
     while (1)
     {
-        // ANGLE CALCULATIONS
-        Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
-        // printf("current date and time is = %s\n", Current_Date_Time);
-        // printf("Now month is: %.2f\n", month);
-        // printf("Now day is: %.2f\n", day);
-        // printf("Now year is: %.2f\n", year);
-        // printf("The day of the year is: %.2f\n", doy);
-        // printf("Now the hour is: %.2f\n", hour);
-        // printf("Now the minute is: %.2f\n", minute);
-        // printf("Now the second is: %.2f\n", second);
-        hour += (minute / 60.0);
-        // printf("Hour appended with minute is now: %f\n", hour);
-        float LSTM = -90.0;
-        float B = (360.0 / 365.0) * (doy - 81.0);
-        float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
-        float TC = 4.0 * (longitude - LSTM) + EoT;
-        float LST = hour + (TC / 60.0);
-        float HRA = 15.0 * (LST - 12.0);
-        float dec_angle = 23.45 * sin(B * M_PI / 180.0);
-        float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
-        elevation_angle = elevation_angle * 180.0 / M_PI;
-        float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
-        azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees                                                                                                                                                                             // storing elevation angle into the data struct
-        if (LST > 12 || HRA > 0)
-        {
-            printf("Past solar noon \n");
-            azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
-        }
-        printf("The current elevation angle is: %.2f \n", elevation_angle);
-        printf("The current azimuth angle is: %.2f\n", azimuth_angle);
-        angd.computed_azimuth = azimuth_angle;     // storing azimuth angle into the data struct
-        angd.computed_elevation = elevation_angle; // storing elevation angle into the data struct
-
-        // code to move motors
-
-        next_rotation = azimuth_angle - current_rotation;
-        next_tilt = elevation_angle - current_tilt;
-
-        // if statements to determine if motors need to be moved forward or backward
-        if (next_rotation >= 0.0)
-        {
-            ESP_LOGI(TAG, "ROTATING FORWARD %.2f degrees", next_rotation);
-            // pwm code to move rotation motor forward
-            bdc_motor_forward(motor_1);
-            bdc_motor_set_speed(motor_1, 125);
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
-            bdc_motor_brake(motor_1);
-        }
-        else
-        {
-            next_rotation = fabs(next_rotation);
-            ESP_LOGI(TAG, "ROTATING BACKWARD %.2f degrees", next_rotation);
-            bdc_motor_reverse(motor_1);
-            bdc_motor_set_speed(motor_1, 125);
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
-            bdc_motor_brake(motor_1);
-        }
-        //     vTaskDelay(3000 / portTICK_PERIOD_MS); // 5 second delay after rotating to desired position and then proceeds to tilt to desired position
-        //                                            // if (next_tilt >= 0.0)
-        //                                            // {
-        //                                            //     ESP_LOGI(TAG, "TILTING UP %.2f degrees", next_tilt);
-        //                                            //     // pwm code to move tilt motor up
-        //                                            //     bdc_motor_reverse(motor_2);
-        //                                            //     // bdc_motor_set_speed(motor_2, 125);
-        //                                            //     // vTaskDelay(1000 / portTICK_PERIOD_MS);
-        //                                            //     // bdc_motor_brake(motor_2);
-        //                                            // }
-        //                                            // else
-        //                                            // {
-        //                                            //     next_tilt = fabs(next_tilt);
-        //                                            //     ESP_LOGI(TAG, "TILTING DOWN %.2f degrees", next_tilt);
-        //                                            //     // pwm code to move tilt motor down
-        //                                            //     bdc_motor_forward(motor_2);
-        //                                            //     bdc_motor_set_speed(motor_2, 125);
-        //                                            //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-        //                                            //     bdc_motor_brake(motor_2);
-        //                                            // }
-
-        // reset current position
-        current_rotation = azimuth_angle;
-        // current_tilt = elevation_angle;
-        vTaskDelay(300000 / portTICK_PERIOD_MS); // delay for 5 min on the loop *SET TO 10 MIN DELAY WHEN READY
+        // sensor_routine();
+        i2c_mag_sample();
+        vTaskDelay(500 / portTICK_PERIOD_MS); // delay by 5 seconds for another collection
     }
-
-    // // SENSOR ROUTINE
-    // // sensor_routine();                                                          // this function samples all data into corresponding global variables and structs for processing
-    // // angd.actual_elevation = (M_PI / 2 - (atan(accd.z / accd.x)) * 180 / M_PI); // compute the actual elevation angle
-    // // angd.actual_elevation =  90;
-    // // angd.actual_azimuth = ((accd.x / accd.y) * 180 / M_PI);                    // compute the actual azimuth angle
-
-    // // POST ROUTINE
-    // // for (int i = 0; i < 2; i++)
-    // // {
-    // //     post_rest_function(i); // posting two indices corresponding to each of the sensors
-    // // }
-    // // // vTaskDelay(600000 / portTICK_PERIOD_MS); // delay for 10 seconds on the loop
-    // // MOTOR CONTROL BLOCK
 }
 
-// ORIENTATION TESTING FOR ACCELEROMETER
+// Set_SystemTime_SNTP();   // configuring the system time and sync with the system network time
+// Get_current_date_time(); // testing wifi in JEB *DELETE AFTER TESTING*
 
+// ESP_LOGI(TAG, "Create DC motor 1");
+// bdc_motor_config_t motor1_config = {
+//     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+//     .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
+//     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
+// };
+// bdc_motor_config_t motor2_config = {
+//     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+//     .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
+//     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
+// };
+// bdc_motor_mcpwm_config_t mcpwm_config = {
+//     .group_id = 0,
+//     .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
+// };
+
+// // Instantiating the motor handles
+// bdc_motor_handle_t motor_1 = NULL;
+// bdc_motor_handle_t motor_2 = NULL;
+// // creating new motor control pwm to drive the motors
+// ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor1_config, &mcpwm_config, &motor_1)); // setting the PWM configurations to go for the first motor
+// ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor2_config, &mcpwm_config, &motor_2)); // setting the PWM configurations to go for the second motor
+// ESP_LOGI(TAG, "Enable motor 1 and 2 object handles");
+// ESP_ERROR_CHECK(bdc_motor_enable(motor_1)); // Enabling the motor 1 interface
+// ESP_ERROR_CHECK(bdc_motor_enable(motor_2)); // Enabling the motor 2 interface
+
+// INFINITE PROGRAM LOOP
+// starting home position of frame
+// float current_rotation = 0.0;
+// float current_tilt = 90.0;
+
+// variables for desired motor position
+// float next_rotation;
+// float next_tilt;
+
+// float rot_seconds;
+// float tilt_seconds;
+
+// // code to test JEB motors
+// printf("Moving motor 1\n");
+// bdc_motor_forward(motor_1);
+// bdc_motor_set_speed(motor_1, 400);
+// vTaskDelay(3000.0 / portTICK_PERIOD_MS);
+// bdc_motor_brake(motor_1);
+// vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+// printf("Moving motor 2\n");
+// bdc_motor_forward(motor_2);
+// bdc_motor_set_speed(motor_2, 400);
+// vTaskDelay(3000.0 / portTICK_PERIOD_MS);
+// bdc_motor_brake(motor_2);
+// vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+//     while (1)
+//     {
+//         // ANGLE CALCULATIONS
+//         Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
+//         // printf("current date and time is = %s\n", Current_Date_Time);
+//         // printf("Now month is: %.2f\n", month);
+//         // printf("Now day is: %.2f\n", day);
+//         // printf("Now year is: %.2f\n", year);
+//         // printf("The day of the year is: %.2f\n", doy);
+//         // printf("Now the hour is: %.2f\n", hour);
+//         // printf("Now the minute is: %.2f\n", minute);
+//         // printf("Now the second is: %.2f\n", second);
+//         if (year == 1969.0) {
+//            printf("Wrong date/time values restarting in 2 seconds\n");
+//            vTaskDelay(2000 / portTICK_PERIOD_MS);
+//            esp_restart();
+//         }
+//         hour += (minute / 60.0);
+//         // printf("Hour appended with minute is now: %f\n", hour);
+//         float LSTM = -90.0;
+//         float B = (360.0 / 365.0) * (doy - 81.0);
+//         float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
+//         float TC = 4.0 * (longitude - LSTM) + EoT;
+//         float LST = hour + (TC / 60.0);
+//         float HRA = 15.0 * (LST - 12.0);
+//         float dec_angle = 23.45 * sin(B * M_PI / 180.0);
+//         float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+//         elevation_angle = elevation_angle * 180.0 / M_PI;
+//         float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+//         azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees                                                                                                                                                                             // storing elevation angle into the data struct
+//         if (LST > 12 || HRA > 0)
+//         {
+//             printf("Past solar noon \n");
+//             azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
+//         }
+
+//         printf("The current azimuth angle is: %.2f\n", azimuth_angle);
+//         printf("The current elevation angle is: %.2f \n", elevation_angle);
+//         angd.computed_azimuth = azimuth_angle;     // storing azimuth angle into the data struct
+//         angd.computed_elevation = elevation_angle; // storing elevation angle into the data struct
+
+//         // code to move motors
+//         next_rotation = azimuth_angle - current_rotation;
+//         next_tilt = elevation_angle - current_tilt;
+
+//         // if statements to determine if motors need to be moved forward or backward
+//         if (next_rotation >= 0.0)
+//         {
+//             rot_scaling = (1000.0 / 2.0) * next_rotation;
+//             rot_seconds = rot_scaling / 1000.0;
+//             ESP_LOGI(TAG, "ROTATING FORWARD %.2f degrees", next_rotation);
+//             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
+//             // pwm code to move rotation motor forward
+//             bdc_motor_forward(motor_1);
+//             bdc_motor_set_speed(motor_1, 125);
+//             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
+//             bdc_motor_brake(motor_1);
+//         }
+//         else
+//         {
+//             next_rotation = fabs(next_rotation);
+//             rot_scaling = (1000.0 / 2.0) * next_rotation;
+//             rot_seconds = rot_scaling / 1000.0;
+//             ESP_LOGI(TAG, "ROTATING BACKWARD %.2f degrees", next_rotation);
+//             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
+//             bdc_motor_reverse(motor_1);
+//             bdc_motor_set_speed(motor_1, 125);
+//             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
+//             bdc_motor_brake(motor_1);
+//         }
+//         vTaskDelay(2500 / portTICK_PERIOD_MS);
+//         // // 5 second delay after rotating to desired position and then proceeds to tilt to desired position
+//         if (next_tilt >= 0.0)
+//         {
+//             tilt_scaling = (1000.0 / 2.0) * next_tilt;
+//             tilt_seconds = tilt_scaling / 1000.0;
+//             ESP_LOGI(TAG, "TILTING UP %.2f degrees", next_tilt);
+//             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
+//             // pwm code to move tilt motor up
+//             bdc_motor_reverse(motor_2);
+//             bdc_motor_set_speed(motor_2, 125);
+//             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
+//             bdc_motor_brake(motor_2);
+//         }
+//         else
+//         {
+//             next_tilt = fabs(next_tilt);
+//             tilt_scaling = (1000.0 / 2.0) * next_tilt;
+//             tilt_seconds = tilt_scaling / 1000.0;
+//             ESP_LOGI(TAG, "TILTING DOWN %.2f degrees", next_tilt);
+//             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
+//             // pwm code to move tilt motor down
+//             bdc_motor_forward(motor_2);
+//             bdc_motor_set_speed(motor_2, 125);
+//             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
+//             bdc_motor_brake(motor_2);
+//         }
+
+//         // reset current position
+//         current_rotation = azimuth_angle;
+//         current_tilt = elevation_angle;
+//         vTaskDelay(300000 / portTICK_PERIOD_MS); // delay for 5 min on the loop *SET TO 10 MIN DELAY WHEN READY
+//     // }
+// }
+
+// POST ROUTINE
+// for (int i = 0; i < 2; i++)
+// {
+//     post_rest_function(i); // posting two indices corresponding to each of the sensors
+// }
+
+// ORIENTATION TESTING FOR ACCELEROMETER
 // for (int i = 0; i < 3; i++)
 // {
 //     vTaskDelay(1000);
@@ -1124,6 +1211,8 @@ void app_main()
 //         break;
 //     }
 // }
+
+// MANUAL CONTROL TESTING
 
 // while (1)
 // {
@@ -1281,7 +1370,7 @@ void app_main()
 // uint8_t val[2];
 // rdMMA845x(WHO_AM_I_REG, &(val), 1); // simple test to verify the right device id of the accelerometer, MMA8451Q
 // printf("%X\n", val[0]);
-// rdMMC560x(DEVICE_ID, &(val), 1); // simple test to verify the right device id of the magnetometer, MMC5603NJ
+// rdMMC560x(MMC560_DEVICE_ID, &(val), 1); // simple test to verify the right device id of the magnetometer, MMC5603NJ
 // printf("%X\n", val[0]);
 
 // // Testing for sensor data

@@ -473,19 +473,19 @@ export function main(firebaseApp) { // main export function called in indext.htm
             }
 
 
-            // google.charts.load('current', { 'packages': ['corechart'] });
-            // const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
-            // xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-            // xhr.responseType = 'json';
-            // xhr.send();
-            // xhr.onreadystatechange = (e) => {
-            //     var jsondat = xhr.response;
-            //     if (jsondat != null) {
-            //         draw_table(jsondat);
-            //     } else {
-            //         console.log("Null contents");
-            //     }
-            // };
+            google.charts.load('current', { 'packages': ['corechart'] });
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123'); // puzzle
+            xhr.responseType = 'json';
+            xhr.send();
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                if (jsondat != null) {
+                    draw_table(jsondat);
+                } else {
+                    console.log("Null contents");
+                }
+            };
 
             draw_table(); // samuel-d
 

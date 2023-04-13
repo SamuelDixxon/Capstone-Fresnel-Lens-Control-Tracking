@@ -1013,13 +1013,14 @@ void app_main()
     //     esp_restart();
     // }
     i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
-    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    MMC560_init(); // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
-    //                // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
+    MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    MMC560_init();     // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
+                       // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
     while (1)
     {
         // sensor_routine();
         i2c_mag_sample();
+        i2c_acc_sample();
         vTaskDelay(500 / portTICK_PERIOD_MS); // delay by 5 seconds for another collection
     }
 }

@@ -4,6 +4,7 @@
 //  * SPDdata-License-Identifier: Apache-2.0
 //  */
 
+// general includes for eps-idf
 #include <stdio.h>
 #include <ctype.h>
 #include "sdkconfig.h"
@@ -12,19 +13,25 @@
 #include "freertos/queue.h"
 #include "freertos/timers.h"
 #include "freertos/event_groups.h"
+#include "nvs_flash.h"
+
+// hardware reltated changes
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "driver/pulse_cnt.h"
 #include "driver/i2c.h"
-#include "bdc_motor.h"
-#include "nvs_flash.h"
+#include "esp_attr.h"
+
+// web
 #include "esp_netif.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
 #include "esp_types.h"
 #include "my_data.h"
-#include "pid_ctrl.h"
 #include "math.h"
+
+// motor driver
+#include "driver/mcpwm.h"
+#include "soc/mcpwm_periph.h"
 
 // STNP
 #include <time.h>
@@ -33,42 +40,22 @@
 #include "esp_sleep.h"
 #include "esp_sntp.h"
 
-/**
- * TEST CODE BRIEF
- *
- * This example will show you how to use I2C module by configuring & reading a MMA8451
- * accelerometer. This device has a registered I2C interface, which requires the I2C
- * bus to issue a 'repeated start' between sending the register to be accessed, and
- * the subsequent read command.
- * (see: https://www.i2c-bus.org/repeated-start-condition/ )
- *
- * - read external i2c sensor, here we use a MMA8451 (accelerometer) for instance.
- *
- * Pin assignment:
- *
- * - master:
- *    GPIO18 is assigned as the data signal of i2c master port
- *    GPIO19 is assigned as the clock signal of i2c master port
- *
- * Connection:
- *
- * - connect sda/scl of sensor (MMA8451) with GPIO18/GPIO19
- * - no need to add external pull-up resistors, driver will enable internal pull-up resistors.
- *
- * Test items:
- *
- * - i2c master(ESP32) will read data from i2c slave (MMA8451 accelerometer)
- */
+// Pins for moving motors
+#define EN1 4  // Set GPIO 4 as PWM0A
+#define EN2 16 // Set GPIO 16 as PWM0B
+#define IN1 17 // Set Input 1 to pin 17, which is a pin that configures which direction to move the motors
+#define IN2 18 // Set Input 2 to pin 18, which is a pin that configures which direction to move the motors
+#define IN3 32 // Set Input 1 to pin 32, which is a pin that configures which motor is selected
+#define IN4 33 // // Set Input 1 to pin 33, which is a pin that configures which motor is selected
 
+// I2C common protocol defines and configuration
 #define SAMPLE_PERIOD_MS 200
-#define I2C_SCL_IO 22          // 19               /*!< gpio number for I2C master clock */
-#define I2C_SDA_IO 21          // 18               /*!< gpio number for I2C master data  */
-#define I2C_FREQ_HZ 100000     /*!< I2C master clock frequency */
-#define I2C_PORT_NUM I2C_NUM_1 /*!< I2C port number for master dev */
-#define I2C_TX_BUF_DISABLE 0   /*!< I2C master do not need buffer */
-#define I2C_RX_BUF_DISABLE 0   /*!< I2C master do not need buffer */
-
-// I2C common protocol defines
+#define I2C_SCL_IO 22              // 19               /*!< gpio number for I2C master clock */
+#define I2C_SDA_IO 21              // 18               /*!< gpio number for I2C master data  */
+#define I2C_FREQ_HZ 100000         /*!< I2C master clock frequency */
+#define I2C_PORT_NUM I2C_NUM_1     /*!< I2C port number for master dev */
+#define I2C_TX_BUF_DISABLE 0       /*!< I2C master do not need buffer */
+#define I2C_RX_BUF_DISABLE 0       /*!< I2C master do not need buffer */
 #define WRITE_BIT I2C_MASTER_WRITE /*!< I2C master write */
 #define READ_BIT I2C_MASTER_READ   /*!< I2C master read */
 #define ACK_CHECK_EN 0x1           /*!< I2C master will check ack from slave*/
@@ -122,14 +109,6 @@
 #define BDC_MCPWM_FREQ_HZ 25000                                                        // 25KHz PWM
 #define BDC_MCPWM_DUTY_TICK_MAdata (BDC_MCPWM_TIMER_RESOLUTION_HZ / BDC_MCPWM_FREQ_HZ) // madataimum value we can set for the duty cycle, in ticks
 
-// Motor one
-#define BDC_MCPWM_GPIO_A_1 33
-#define BDC_MCPWM_GPIO_B_1 32
-
-// Motor two
-#define BDC_MCPWM_GPIO_A_2 19
-#define BDC_MCPWM_GPIO_B_2 18
-
 // HTTP Client - FreeRTOS ESP IDF - GET
 extern const uint8_t certificate_pem_start[] asm("_binary_certificate_pem_start"); // binary certificate start for ssl in https request
 extern const uint8_t certificate_pem_end[] asm("_binary_certificate_pem_end");     // binary certificate end for ssl in https request
@@ -143,17 +122,6 @@ int8_t pwm_y; // value to get and store the pwm value for y
 
 // Tag for getting the data with ESP32 logger function
 static const char *TAG = "ESP Logger: ";
-
-int8_t hard_coded_angles[10] = {10, 20, 30, 40, 50, 60, 50, 40, 30, 20, 10};
-
-// struct to store motor driver parameters
-typedef struct
-{
-    bdc_motor_handle_t motor;         // motor object for control
-    pcnt_unit_handle_t pcnt_encoder;  // pcnt encoder for QEP (quardature encoded pulse feedback)
-    pid_ctrl_block_handle_t pid_ctrl; // pid control block (unused curently)
-    int report_pulses;                // pulse reporter for pid control loop (unused curently)
-} motor_control_contedatat_t;
 
 // Structure to hold accelerometer data
 typedef struct ACCEL_DATA
@@ -201,13 +169,13 @@ stMAG_CAL_t mcal;    // structure for calibrating the magnetometer data
 float t_m;           // variable for storing ambient temperature
 
 // Hard-iron calibration settings (from calibration software, MotionCal)
-const float hard_iron[3] = {7.98, 18.51, 86.05};
+const float hard_iron[3] = {24.43, -4.17, -81.94};
 
 // Soft-iron calibration settings (from calibration software, MotionCal)
 const float soft_iron[3][3] = {
-    {0.995, -0.005, -0.009},
-    {-0.005, 0.978, -0.047},
-    {-0.009, -0.047, 1.030}};
+    {0.991, 0.008, 0.012},
+    {0.008, 0.965, -0.054},
+    {0.012, 0.054, 1.049}};
 
 // Wifi handler function and status update function
 // adapted from online example youtube video
@@ -383,21 +351,21 @@ static void post_rest_function(int sensor)
     // one of the requests posts the acceleration data (input variable sensor=0) while the other posts the magnetometer data (input variable sensor=1)
     switch (sensor)
     {
-    case (0):                                                                                                                                                                                             // for case 0 we get the acceleration data and write the struct data to post
-        x = (accd.x * (9.80665 / 4096));                                                                                                                                                                  // converting acc.x reading to m/s^2
-        y = (accd.y * (9.80665 / 4096));                                                                                                                                                                  // converting acc.y reading to m/s^2
-        z = (accd.z * (9.80665 / 4096));                                                                                                                                                                  // convert the acc.z reading to m/s^2
-        c_e = angd.computed_elevation;                                                                                                                                                                    // get the computed elevation angle into a double variable
-        a_e = angd.actual_elevation;                                                                                                                                                                      // get the actual elevation agnle into a double variable                                                                                                                                               // converting acc.Z reading to m/s^2
-        sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"e_a\":\"%.1f\",\"e_c\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, c_e, a_e, t_a, t_m); // formatting the data obtained from the accelerometer struct
+    case (0):                                                                                                                                                 // for case 0 we get the acceleration data and write the struct data to post
+        x = (accd.x * (9.80665 / 4096));                                                                                                                      // converting acc.x reading to m/s^2
+        y = (accd.y * (9.80665 / 4096));                                                                                                                      // converting acc.y reading to m/s^2
+        z = (accd.z * (9.80665 / 4096));                                                                                                                      // convert the acc.z reading to m/s^2
+        c_e = angd.computed_elevation;                                                                                                                        // get the computed elevation angle into a double variable
+        a_e = angd.actual_elevation;                                                                                                                          // get the actual elevation agnle into a double variable                                                                                                                                               // converting acc.Z reading to m/s^2
+        sprintf(buffer, "{\"sensor\":\"Accelerometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_e\":\"%.1f\",\"c_e\":\"%.1f\"}", x, y, z, a_e, c_e); // formatting the data obtained from the accelerometer struct
         break;
-    case (1):                                                                                                                                                                                            // for case 0 we get the magnetometer data and write the struct data to post
-        x = mcal.x;                                                                                                                                                                                      // converting acc.x reading to uTesla
-        y = mcal.y;                                                                                                                                                                                      // converting acc.y reading to uTesla
-        z = mcal.z;                                                                                                                                                                                      // converting magd.z reading to uTesla
-        c_a = angd.computed_azimuth;                                                                                                                                                                     // get the computed elevation angle into a double variable
-        a_a = angd.actual_azimuth;                                                                                                                                                                       // get the actual elevation agnle into a double variable                                                                                                                                                             // converting acc.Z reading to uTesla
-        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\",\"t_a\":\"%.1f\",\"t_m\":\"%.1f\"}", x, y, z, a_a, c_a, t_a, t_m); // formatting the data obtained from the magnetometer struct
+    case (1):                                                                                                                                                // for case 0 we get the magnetometer data and write the struct data to post
+        x = mcal.x;                                                                                                                                          // converting acc.x reading to uTesla
+        y = mcal.y;                                                                                                                                          // converting acc.y reading to uTesla
+        z = mcal.z;                                                                                                                                          // converting magd.z reading to uTesla
+        c_a = angd.computed_azimuth;                                                                                                                         // get the computed elevation angle into a double variable
+        a_a = angd.actual_azimuth;                                                                                                                           // get the actual elevation agnle into a double variable                                                                                                                                                             // converting acc.Z reading to uTesla
+        sprintf(buffer, "{\"sensor\":\"Magnetometer1\",\"x\":\"%.1f\",\"y\":\"%.1f\",\"z\":\"%.1f\",\"a_a\":\"%.1f\",\"c_a\":\"%.1f\"}", x, y, z, a_a, c_a); // formatting the data obtained from the magnetometer struct
         break;
     default:
         ESP_LOGI(TAG, "Error in the input parameter, input to post function should be integer, specifically: \n0 : Post Accelerometer data\n1: Post Magnetometer data \n2: Post mock data generated from random function");
@@ -784,7 +752,7 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
     int32_t y; // y placeholder for raw data
     int32_t z; // z placeholder for raw data
 
-    ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMC5603NJ Magnetometer");
+    // ESP_LOGI(TAG, "ESP I2C_RESTART Example - MMC5603NJ Magnetometer");
 
     /*
 
@@ -848,11 +816,54 @@ esp_err_t i2c_mag_sample() // function to capture magnetomer data into struct an
     }
 
     // ESP_LOGI(TAG, "Magnetometer Reading Calibrated and Scaled err: %d  x: %f  y: %f  z:%f", err, mcal.x, mcal.y, mcal.z); // log result for calibrated/scaled reading
-    ESP_LOGI(TAG, "Magnetometer compass measurement reading: %f", angd.actual_azimuth); // log result for compass reading
+    // ESP_LOGI(TAG, "Magnetometer compass measurement reading: %f", angd.actual_azimuth); // log result for compass reading
+    printf("%f,\n", angd.actual_azimuth);
 
     vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
 
     return err;
+}
+
+void Get_current_date_time()
+{
+    char strftime_buf[64];
+    time_t now;
+    struct tm timeinfo;
+    int test_hours, test_minutes, test_seconds, test_month, test_day, test_year, test_doy;
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    // Set timezone to Texas time
+    setenv("TZ", "UTC+6", 1);
+    tzset();
+    localtime_r(&now, &timeinfo);
+    struct tm *local = localtime(&now);
+    test_hours = local->tm_hour;
+    test_minutes = local->tm_min;
+    test_seconds = local->tm_sec;
+    test_month = local->tm_mon;
+    test_day = local->tm_mday + 1;
+    test_year = local->tm_year + 1900;
+    test_doy = local->tm_yday + 1;
+    // TIME TESTING FOR STNP TIME SYNC AND DATA
+    // printf("Current Hours: %d\n", test_hours);
+    // printf("Current Mins: %d\n", test_minutes);
+    // printf("Current Seconds: %d\n", test_seconds);
+    // printf("Current Month: %d\n", test_month);
+    // printf("Current Day: %d\n", test_day);
+    // printf("Current Year: %d\n", test_year);
+    // printf("Current Day of Year: %d\n", test_doy);
+    hour = test_hours;
+    minute = test_minutes;
+    second = test_seconds;
+    month = test_month;
+    day = test_day;
+    year = test_year;
+    doy = test_doy;
+
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "The current date/time in College Station is: %s", strftime_buf);
 }
 
 esp_err_t i2c_temp_sample()
@@ -893,11 +904,65 @@ static void sensor_routine()
     { // logging error if exists for temperature sensor
         ESP_LOGE(TAG, "Magnetometer Reading Error Bit:%d", err);
     }
-    err = i2c_temp_sample(); // aggregating temperature data into data struct
-    if (err != ESP_OK)
-    { // logging error if exists for temperature sensor
-        ESP_LOGE(TAG, "Temperature Reading Error Bit:%d", err);
+    // err = i2c_temp_sample(); // aggregating temperature data into data struct
+    // if (err != ESP_OK)
+    // { // logging error if exists for temperature sensor
+    //     ESP_LOGE(TAG, "Temperature Reading Error Bit:%d", err);
+    // }
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // delay one second before going onto post routine
+}
+
+static void post_routine()
+{
+    post_rest_function(0); // post data corresponding to magnetometer
+    post_rest_function(1); // post data corresponding to magnetometer
+}
+
+static void delay_routine()
+{
+    vTaskDelay(60 * 1000 * 10 / portTICK_PERIOD_MS);
+}
+
+static void update_angle_routine()
+{
+    // ANGLE CALCULATIONS
+    Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
+    printf("Now month is: %.2f\n", month);
+    printf("Now day is: %.2f\n", day);
+    printf("Now year is: %.2f\n", year);
+    printf("The day of the year is: %.2f\n", doy);
+    printf("Now the hour is: %.2f\n", hour);
+    printf("Now the minute is: %.2f\n", minute);
+    printf("Now the second is: %.2f\n", second);
+    if (year == 1969.0)
+    {
+        printf("Wrong date/time values restarting in 2 seconds\n");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        esp_restart();
     }
+    hour += (minute / 60.0);
+    // printf("Hour appended with minute is now: %f\n", hour);
+    float LSTM = -90.0;
+    float B = (360.0 / 365.0) * (doy - 81.0);
+    float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
+    float TC = 4.0 * (longitude - LSTM) + EoT;
+    float LST = hour + (TC / 60.0);
+    float HRA = 15.0 * (LST - 12.0);
+    float dec_angle = 23.45 * sin(B * M_PI / 180.0);
+    float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+    elevation_angle = elevation_angle * 180.0 / M_PI;
+    float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+    azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees                                                                                                                                                                             // storing elevation angle into the data struct
+    if (LST > 12 || HRA > 0)
+    {
+        printf("Past solar noon \n");
+        azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
+    }
+
+    printf("The current azimuth angle is: %.2f\n", azimuth_angle);
+    printf("The current elevation angle is: %.2f \n", elevation_angle);
+    angd.computed_azimuth = azimuth_angle;     // storing azimuth angle into the data struct
+    angd.computed_elevation = elevation_angle; // storing elevation angle into the data struct
 }
 
 void time_sync_notification_cb(struct timeval *tv)
@@ -956,306 +1021,325 @@ void Set_SystemTime_SNTP()
     }
 }
 
-void Get_current_date_time()
+static void mcpwm_example_gpio_initialize(void)
 {
-    char strftime_buf[64];
-    time_t now;
-    struct tm timeinfo;
-    int test_hours, test_minutes, test_seconds, test_month, test_day, test_year, test_doy;
+    printf("initializing mcpwm gpio...\n");
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, EN1);
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, EN2);
+}
 
-    time(&now);
-    localtime_r(&now, &timeinfo);
+/**
+ * @brief motor 1 moves in forward direction, with duty cycle = duty %
+ */
+static void motor1_forward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
+{
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_A,
+                        MCPWM_DUTY_MODE_0); // call this each time, if operator was previously in low / high state
+    gpio_set_level(IN1, 1);
+    gpio_set_level(IN2, 0);
+}
 
-    // Set timezone to Texas time
-    setenv("TZ", "UTC+6", 1);
-    tzset();
-    localtime_r(&now, &timeinfo);
-    struct tm *local = localtime(&now);
-    test_hours = local->tm_hour;
-    test_minutes = local->tm_min;
-    test_seconds = local->tm_sec;
-    test_month = local->tm_mon;
-    test_day = local->tm_mday + 1;
-    test_year = local->tm_year + 1900;
-    test_doy = local->tm_yday + 1;
-    // TIME TESTING FOR STNP TIME SYNC AND DATA
-    // printf("Current Hours: %d\n", test_hours);
-    // printf("Current Mins: %d\n", test_minutes);
-    // printf("Current Seconds: %d\n", test_seconds);
-    // printf("Current Month: %d\n", test_month);
-    // printf("Current Day: %d\n", test_day);
-    // printf("Current Year: %d\n", test_year);
-    // printf("Current Day of Year: %d\n", test_doy);
-    hour = test_hours;
-    minute = test_minutes;
-    second = test_seconds;
-    month = test_month;
-    day = test_day;
-    year = test_year;
-    doy = test_doy;
+/**
+ * @brief motor 2 moves in forward direction, with duty cycle = duty %
+ */
+static void motor2_forward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
+{
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_B,
+                        MCPWM_DUTY_MODE_0); // call this each time, if operator was previously in low / high state
+    gpio_set_level(IN3, 1);
+    gpio_set_level(IN4, 0);
+}
 
-    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    ESP_LOGI(TAG, "The current date/time in College Station is: %s", strftime_buf);
+/**
+ * @brief motor 1 moves in backward direction, with duty cycle = duty %
+ */
+static void motor1_backward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
+{
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_A,
+                        MCPWM_DUTY_MODE_0); // call this each time, if operator was previously in low / high state
+    gpio_set_level(IN1, 0);
+    gpio_set_level(IN2, 1);
+}
+
+/**
+ * @brief motor 2 moves in backward direction, with duty cycle = duty %
+ */
+static void motor2_backward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
+{
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_B,
+                        MCPWM_DUTY_MODE_0); // call this each time, if operator was previously in low / high state
+    gpio_set_level(IN3, 0);
+    gpio_set_level(IN4, 1);
+}
+
+/**
+ * @brief motor 1 stop
+ */
+static void motor1_stop(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    gpio_set_level(IN1, 0);
+    gpio_set_level(IN2, 0);
+}
+
+/**
+ * @brief motor 2 stop
+ */
+static void motor2_stop(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num)
+{
+    // mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    gpio_set_level(IN3, 0);
+    gpio_set_level(IN4, 0);
+}
+
+/**
+ * @brief Configure MCPWM module for brushed dc motor
+ */
+static void mcpwm_example_brushed_motor_control(void *arg)
+{
+    // 1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    // 2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm...\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 10000; // frequency = 10kHz,
+    pwm_config.cmpr_a = 0;        // duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;        // duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); // Configure PWM0A &PWM0B with above settings
 }
 
 void app_main()
 {
-    // printf("Starting Up right now\n");
     // INITIALIZATIONS
     // includes initializing flash memory, connecting to wifi, configuring the 3 sensors via I2C, setting the system time, and the motors
-    nvs_flash_init(); // flash initialization
-    // wifi_connection(); // run routines to connect to the wifi
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // if (IP_check == false)
-    // {
-    //     printf("Restarting in 2 seconds to connect to IP\n");
-    //     vTaskDelay(2000 / portTICK_PERIOD_MS);
-    //     esp_restart();
+    nvs_flash_init();  // flash initialization
+    wifi_connection(); // run routines to connect to the wifi
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    if (IP_check == false)
+    {
+        printf("Restarting in 2 seconds to connect to IP\n");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        esp_restart();
+    }
+
+    // i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
+    // MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
+    // MMC560_init(); // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
+    // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
+
+    // Set_SystemTime_SNTP(); // configuring the system time and sync with the system network time
+    // Get_current_date_time(); // testing wifi in JEB *DELETE AFTER TESTING*
+
+    //     while (1)
+    //     {
+    //         // ANGLE CALCULATIONS
+    //         Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
+    //         // printf("current date and time is = %s\n", Current_Date_Time);
+    //         // printf("Now month is: %.2f\n", month);
+    //         // printf("Now day is: %.2f\n", day);
+    //         // printf("Now year is: %.2f\n", year);
+    //         // printf("The day of the year is: %.2f\n", doy);
+    //         // printf("Now the hour is: %.2f\n", hour);
+    //         // printf("Now the minute is: %.2f\n", minute);
+    //         // printf("Now the second is: %.2f\n", second);
+    //         if (year == 1969.0) {
+    //            printf("Wrong date/time values restarting in 2 seconds\n");
+    //            vTaskDelay(2000 / portTICK_PERIOD_MS);
+    //            esp_restart();
+    //         }
+    //         hour += (minute / 60.0);
+    //         // printf("Hour appended with minute is now: %f\n", hour);
+    //         float LSTM = -90.0;
+    //         float B = (360.0 / 365.0) * (doy - 81.0);
+    //         float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
+    //         float TC = 4.0 * (longitude - LSTM) + EoT;
+    //         float LST = hour + (TC / 60.0);
+    //         float HRA = 15.0 * (LST - 12.0);
+    //         float dec_angle = 23.45 * sin(B * M_PI / 180.0);
+    //         float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
+    //         elevation_angle = elevation_angle * 180.0 / M_PI;
+    //         float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
+    //         azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees                                                                                                                                                                             // storing elevation angle into the data struct
+    //         if (LST > 12 || HRA > 0)
+    //         {
+    //             printf("Past solar noon \n");
+    //             azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
+    //         }
+
+    //         printf("The current azimuth angle is: %.2f\n", azimuth_angle);
+    //         printf("The current elevation angle is: %.2f \n", elevation_angle);
+    //         angd.computed_azimuth = azimuth_angle;     // storing azimuth angle into the data struct
+    //         angd.computed_elevation = elevation_angle; // storing elevation angle into the data struct
+
+    //         // code to move motors
+    //         next_rotation = azimuth_angle - current_rotation;
+    //         next_tilt = elevation_angle - current_tilt;
+
+    //         // if statements to determine if motors need to be moved forward or backward
+    //         if (next_rotation >= 0.0)
+    //         {
+    //             rot_scaling = (1000.0 / 2.0) * next_rotation;
+    //             rot_seconds = rot_scaling / 1000.0;
+    //             ESP_LOGI(TAG, "ROTATING FORWARD %.2f degrees", next_rotation);
+    //             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
+    //             // pwm code to move rotation motor forward
+    //             bdc_motor_forward(motor_1);
+    //             bdc_motor_set_speed(motor_1, 125);
+    //             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
+    //             bdc_motor_brake(motor_1);
+    //         }
+    //         else
+    //         {
+    //             next_rotation = fabs(next_rotation);
+    //             rot_scaling = (1000.0 / 2.0) * next_rotation;
+    //             rot_seconds = rot_scaling / 1000.0;
+    //             ESP_LOGI(TAG, "ROTATING BACKWARD %.2f degrees", next_rotation);
+    //             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
+    //             bdc_motor_reverse(motor_1);
+    //             bdc_motor_set_speed(motor_1, 125);
+    //             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
+    //             bdc_motor_brake(motor_1);
+    //         }
+    //         vTaskDelay(2500 / portTICK_PERIOD_MS);
+    //         // // 5 second delay after rotating to desired position and then proceeds to tilt to desired position
+    //         if (next_tilt >= 0.0)
+    //         {
+    //             tilt_scaling = (1000.0 / 2.0) * next_tilt;
+    //             tilt_seconds = tilt_scaling / 1000.0;
+    //             ESP_LOGI(TAG, "TILTING UP %.2f degrees", next_tilt);
+    //             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
+    //             // pwm code to move tilt motor up
+    //             bdc_motor_reverse(motor_2);
+    //             bdc_motor_set_speed(motor_2, 125);
+    //             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
+    //             bdc_motor_brake(motor_2);
+    //         }
+    //         else
+    //         {
+    //             next_tilt = fabs(next_tilt);
+    //             tilt_scaling = (1000.0 / 2.0) * next_tilt;
+    //             tilt_seconds = tilt_scaling / 1000.0;
+    //             ESP_LOGI(TAG, "TILTING DOWN %.2f degrees", next_tilt);
+    //             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
+    //             // pwm code to move tilt motor down
+    //             bdc_motor_forward(motor_2);
+    //             bdc_motor_set_speed(motor_2, 125);
+    //             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
+    //             bdc_motor_brake(motor_2);
+    //         }
+
+    //         // reset current position
+    //         current_rotation = azimuth_angle;
+    //         current_tilt = elevation_angle;
+    //         vTaskDelay(300000 / portTICK_PERIOD_MS); // delay for 5 min on the loop *SET TO 10 MIN DELAY WHEN READY
+    //     // }
     // }
-    i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
-    MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    MMC560_init();     // initialize the magnetometer by adjusting the control registers to desired polling / resolution settings
-                       // MCP98_init();      // initialize the temperature sensor by adjusting the control registers to desired polling / resolution settings
+
+    // POST ROUTINE
+    // for (int i = 0; i < 2; i++)
+    // {
+    //     post_rest_function(i); // posting two indices corresponding to each of the sensors
+    // }
+
+    // ORIENTATION TESTING FOR ACCELEROMETER
+    // for (int i = 0; i < 3; i++)
+    // {
+    //     vTaskDelay(1000);
+    //     i2c_acc_sample();
+    //     switch (i)
+    //     {
+    //     case (0):
+    //         ESP_LOGI(TAG, "X - Orientation Test x: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     case (1):
+    //         ESP_LOGI(TAG, "Y - Orientation Test y: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     case (2):
+    //         ESP_LOGI(TAG, "Y - Orientation Test z: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
+    //         break;
+    //     default:
+    //         break;
+    //     }
+    // }
+
+    // MANUAL CONTROL TESTING
+
+    // set all control pins as outputs
+    gpio_set_direction(IN1, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN2, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN3, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN4, GPIO_MODE_OUTPUT);
+
+    // 1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    // 2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm...\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 10000; // frequency = 10kHz,
+    pwm_config.cmpr_a = 0;        // duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;        // duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); // Configure  PWM0A & PWM0B with above settings
+
+    double dc_x;
+    double dc_y;
     while (1)
     {
-        // sensor_routine();
-        i2c_mag_sample();
-        i2c_acc_sample();
-        vTaskDelay(500 / portTICK_PERIOD_MS); // delay by 5 seconds for another collection
+
+        rest_get_pwm();
+        dc_x = (((double)pwm_x)) * 0.5; // convert duty cycle to percent of 400
+        dc_y = (((double)pwm_y)) * 0.5;
+
+        if (pwm_x < 0 && pwm_x >= -100)
+        { // backward operation
+            dc_x = fabs(dc_x);
+            ESP_LOGI(TAG, "Backward x motor with %f", dc_x);
+            motor1_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
+        }
+        else if (pwm_x > 0 && pwm_x <= 100)
+        { // forward operation
+            dc_x = fabs(dc_x);
+            ESP_LOGI(TAG, "Forward x motor %f", dc_x);
+            motor1_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
+        }
+        else if (pwm_x == 0)
+        {
+            motor1_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        }
+        if (pwm_y < 0 && pwm_y >= -100)
+        { // backward operation
+            dc_y = fabs(dc_y);
+            ESP_LOGI(TAG, "Backward y motor %f", dc_y);
+            motor2_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
+        }
+        else if (pwm_y > 0 && pwm_y <= 100)
+        { // forward operation
+            dc_y = fabs(dc_y);
+            ESP_LOGI(TAG, "Forward y motor %f", dc_y);
+            motor2_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
+        }
+        else if (pwm_y == 0)
+        {
+            motor2_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS); // delay half a second !
     }
 }
-
-// Set_SystemTime_SNTP();   // configuring the system time and sync with the system network time
-// Get_current_date_time(); // testing wifi in JEB *DELETE AFTER TESTING*
-
-// ESP_LOGI(TAG, "Create DC motor 1");
-// bdc_motor_config_t motor1_config = {
-//     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-//     .pwma_gpio_num = BDC_MCPWM_GPIO_A_1,
-//     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_1,
-// };
-// bdc_motor_config_t motor2_config = {
-//     .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
-//     .pwma_gpio_num = BDC_MCPWM_GPIO_A_2,
-//     .pwmb_gpio_num = BDC_MCPWM_GPIO_B_2,
-// };
-// bdc_motor_mcpwm_config_t mcpwm_config = {
-//     .group_id = 0,
-//     .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-// };
-
-// // Instantiating the motor handles
-// bdc_motor_handle_t motor_1 = NULL;
-// bdc_motor_handle_t motor_2 = NULL;
-// // creating new motor control pwm to drive the motors
-// ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor1_config, &mcpwm_config, &motor_1)); // setting the PWM configurations to go for the first motor
-// ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor2_config, &mcpwm_config, &motor_2)); // setting the PWM configurations to go for the second motor
-// ESP_LOGI(TAG, "Enable motor 1 and 2 object handles");
-// ESP_ERROR_CHECK(bdc_motor_enable(motor_1)); // Enabling the motor 1 interface
-// ESP_ERROR_CHECK(bdc_motor_enable(motor_2)); // Enabling the motor 2 interface
-
-// INFINITE PROGRAM LOOP
-// starting home position of frame
-// float current_rotation = 0.0;
-// float current_tilt = 90.0;
-
-// variables for desired motor position
-// float next_rotation;
-// float next_tilt;
-
-// float rot_seconds;
-// float tilt_seconds;
-
-// // code to test JEB motors
-// printf("Moving motor 1\n");
-// bdc_motor_forward(motor_1);
-// bdc_motor_set_speed(motor_1, 400);
-// vTaskDelay(3000.0 / portTICK_PERIOD_MS);
-// bdc_motor_brake(motor_1);
-// vTaskDelay(3000 / portTICK_PERIOD_MS);
-
-// printf("Moving motor 2\n");
-// bdc_motor_forward(motor_2);
-// bdc_motor_set_speed(motor_2, 400);
-// vTaskDelay(3000.0 / portTICK_PERIOD_MS);
-// bdc_motor_brake(motor_2);
-// vTaskDelay(3000 / portTICK_PERIOD_MS);
-
-//     while (1)
-//     {
-//         // ANGLE CALCULATIONS
-//         Get_current_date_time(); // get current time sets and syncs the values of current time on the device with expecation
-//         // printf("current date and time is = %s\n", Current_Date_Time);
-//         // printf("Now month is: %.2f\n", month);
-//         // printf("Now day is: %.2f\n", day);
-//         // printf("Now year is: %.2f\n", year);
-//         // printf("The day of the year is: %.2f\n", doy);
-//         // printf("Now the hour is: %.2f\n", hour);
-//         // printf("Now the minute is: %.2f\n", minute);
-//         // printf("Now the second is: %.2f\n", second);
-//         if (year == 1969.0) {
-//            printf("Wrong date/time values restarting in 2 seconds\n");
-//            vTaskDelay(2000 / portTICK_PERIOD_MS);
-//            esp_restart();
-//         }
-//         hour += (minute / 60.0);
-//         // printf("Hour appended with minute is now: %f\n", hour);
-//         float LSTM = -90.0;
-//         float B = (360.0 / 365.0) * (doy - 81.0);
-//         float EoT = 9.87 * sin(2.0 * B * M_PI / 180.0) - 7.53 * cos(B * M_PI / 180.0) - 1.5 * sin(B * M_PI / 180.0);
-//         float TC = 4.0 * (longitude - LSTM) + EoT;
-//         float LST = hour + (TC / 60.0);
-//         float HRA = 15.0 * (LST - 12.0);
-//         float dec_angle = 23.45 * sin(B * M_PI / 180.0);
-//         float elevation_angle = asin(sin(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) + cos(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0));
-//         elevation_angle = elevation_angle * 180.0 / M_PI;
-//         float azimuth_angle = acos((sin(dec_angle * M_PI / 180.0) * cos(latitude * M_PI / 180.0) - cos(dec_angle * M_PI / 180.0) * sin(latitude * M_PI / 180.0) * cos(HRA * M_PI / 180.0)) / cos(elevation_angle * M_PI / 180.0)); // numerator of the azimuth angle calculation
-//         azimuth_angle = (azimuth_angle * 180.0 / M_PI);                                                                                                                                                                            // converts from radians to degrees                                                                                                                                                                             // storing elevation angle into the data struct
-//         if (LST > 12 || HRA > 0)
-//         {
-//             printf("Past solar noon \n");
-//             azimuth_angle = 360 - azimuth_angle; // equation for azimuth angle after the local solar noon
-//         }
-
-//         printf("The current azimuth angle is: %.2f\n", azimuth_angle);
-//         printf("The current elevation angle is: %.2f \n", elevation_angle);
-//         angd.computed_azimuth = azimuth_angle;     // storing azimuth angle into the data struct
-//         angd.computed_elevation = elevation_angle; // storing elevation angle into the data struct
-
-//         // code to move motors
-//         next_rotation = azimuth_angle - current_rotation;
-//         next_tilt = elevation_angle - current_tilt;
-
-//         // if statements to determine if motors need to be moved forward or backward
-//         if (next_rotation >= 0.0)
-//         {
-//             rot_scaling = (1000.0 / 2.0) * next_rotation;
-//             rot_seconds = rot_scaling / 1000.0;
-//             ESP_LOGI(TAG, "ROTATING FORWARD %.2f degrees", next_rotation);
-//             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
-//             // pwm code to move rotation motor forward
-//             bdc_motor_forward(motor_1);
-//             bdc_motor_set_speed(motor_1, 125);
-//             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
-//             bdc_motor_brake(motor_1);
-//         }
-//         else
-//         {
-//             next_rotation = fabs(next_rotation);
-//             rot_scaling = (1000.0 / 2.0) * next_rotation;
-//             rot_seconds = rot_scaling / 1000.0;
-//             ESP_LOGI(TAG, "ROTATING BACKWARD %.2f degrees", next_rotation);
-//             printf("Rotating motor on for %.2f seconds\n", rot_seconds);
-//             bdc_motor_reverse(motor_1);
-//             bdc_motor_set_speed(motor_1, 125);
-//             vTaskDelay(rot_scaling / portTICK_PERIOD_MS);
-//             bdc_motor_brake(motor_1);
-//         }
-//         vTaskDelay(2500 / portTICK_PERIOD_MS);
-//         // // 5 second delay after rotating to desired position and then proceeds to tilt to desired position
-//         if (next_tilt >= 0.0)
-//         {
-//             tilt_scaling = (1000.0 / 2.0) * next_tilt;
-//             tilt_seconds = tilt_scaling / 1000.0;
-//             ESP_LOGI(TAG, "TILTING UP %.2f degrees", next_tilt);
-//             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
-//             // pwm code to move tilt motor up
-//             bdc_motor_reverse(motor_2);
-//             bdc_motor_set_speed(motor_2, 125);
-//             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
-//             bdc_motor_brake(motor_2);
-//         }
-//         else
-//         {
-//             next_tilt = fabs(next_tilt);
-//             tilt_scaling = (1000.0 / 2.0) * next_tilt;
-//             tilt_seconds = tilt_scaling / 1000.0;
-//             ESP_LOGI(TAG, "TILTING DOWN %.2f degrees", next_tilt);
-//             printf("Tilt motor on for %.2f seconds\n", tilt_seconds);
-//             // pwm code to move tilt motor down
-//             bdc_motor_forward(motor_2);
-//             bdc_motor_set_speed(motor_2, 125);
-//             vTaskDelay(tilt_scaling / portTICK_PERIOD_MS);
-//             bdc_motor_brake(motor_2);
-//         }
-
-//         // reset current position
-//         current_rotation = azimuth_angle;
-//         current_tilt = elevation_angle;
-//         vTaskDelay(300000 / portTICK_PERIOD_MS); // delay for 5 min on the loop *SET TO 10 MIN DELAY WHEN READY
-//     // }
-// }
-
-// POST ROUTINE
-// for (int i = 0; i < 2; i++)
-// {
-//     post_rest_function(i); // posting two indices corresponding to each of the sensors
-// }
-
-// ORIENTATION TESTING FOR ACCELEROMETER
-// for (int i = 0; i < 3; i++)
-// {
-//     vTaskDelay(1000);
-//     i2c_acc_sample();
-//     switch (i)
-//     {
-//     case (0):
-//         ESP_LOGI(TAG, "X - Orientation Test x: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
-//         break;
-//     case (1):
-//         ESP_LOGI(TAG, "Y - Orientation Test y: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
-//         break;
-//     case (2):
-//         ESP_LOGI(TAG, "Y - Orientation Test z: %f y: %f z: %f", accd.X * (9.80665 / 4096), accd.Y * (9.80665 / 4096), accd.Z * (9.80665 / 4096));
-//         break;
-//     default:
-//         break;
-//     }
-// }
-
-// MANUAL CONTROL TESTING
-
-// while (1)
-// {
-//     rest_get_pwm();
-//     ESP_LOGI(TAG, "PWM Value Updates: x: %d y: %d", pwm_x, pwm_y);
-//     double dc_x = (((double)pwm_x) / 100) * 400; // convert duty cycle to percent of 400
-//     double dc_y = (((double)pwm_y) / 100) * 400;
-
-//     if (pwm_x < 0 && pwm_x >= -100)
-//     { // backward operation
-//         ESP_LOGI(TAG, "Backward x motor");
-//         ESP_ERROR_CHECK(bdc_motor_reverse(motor_1));
-//         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, -1 * dc_x));
-//     }
-//     else if (pwm_x > 0 && pwm_x <= 100)
-//     { // forward operation
-//         ESP_LOGI(TAG, "Forward x motor");
-//         ESP_ERROR_CHECK(bdc_motor_forward(motor_1));
-//         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_1, dc_x));
-//     }
-//     else if (pwm_x == 0)
-//     {
-//         ESP_ERROR_CHECK(bdc_motor_brake(motor_1));
-//     }
-//     if (pwm_y < 0 && pwm_y >= -100)
-//     { // backward operation
-//         ESP_LOGI(TAG, "Backward y motor");
-//         ESP_ERROR_CHECK(bdc_motor_reverse(motor_2));
-//         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, -1 * dc_y));
-//     }
-//     else if (pwm_y > 0 && pwm_y <= 100)
-//     { // forward operation
-//         ESP_LOGI(TAG, "Forward y motor");
-//         ESP_ERROR_CHECK(bdc_motor_forward(motor_2));
-//         ESP_ERROR_CHECK(bdc_motor_set_speed(motor_2, dc_y));
-//     }
-//     else if (pwm_y == 0)
-//     {
-//         ESP_ERROR_CHECK(bdc_motor_brake(motor_2));
-//     }
-//     vTaskDelay(50 / portTICK_PERIOD_MS); // delay half a second !
-// }
 
 // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);
 
@@ -1442,3 +1526,14 @@ void app_main()
 //     bdc_motor_brake(motor_1); // brake motor 1
 //     bdc_motor_brake(motor_2); // brake motor 2
 // }
+
+// // Sensor Routine Testing and Magnetometer
+// for (int i = 0; i < 100; i++)
+//     {
+//         // sensor_routine();       // acquiring new sensor data into the respective global structures for accelerometer and magnetometer
+//         // update_angle_routine(); // updating the angle in the respective global structure for angles which gives parametric control
+//         // post_routine();         // posts the new updated values to the database for display on the web application
+//         // delay_routine();        // delay routine , right now delay by 10 minutes, but have potential to introduce interrupt for manual control
+//         i2c_mag_sample();
+//         vTaskDelay(1000 / portTICK_PERIOD_MS);
+//     }

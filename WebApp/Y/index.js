@@ -23,24 +23,37 @@ export function main(firebaseApp) { // main export function called in indext.htm
 
         // Populating random data for testing
 
-        for (let i = 0; i < 50; i++) {
-            if (i % 2 == 0) {
-                rows.push(["Magnetometer1", Math.random(), Math.random(), Math.random(), (Math.random() * 50) + 10, (Math.random() * 45) + 10, null, null, (Math.random() * 10) + 5, Date.now()]);
-            } else {
-                rows.push(["Accelerometer1", Math.random() * 4 + 5, Math.random() * 3 - 2, Math.random() * 10 - 8, null, null, (Math.random() * 50) + 10, (Math.random() * 45) + 10, (Math.random() * 10) + 5, Date.now()]);
-            }
-        }
-
-        // if (Object.keys(jsondat).length > 0) {
-        //     Object.keys(jsondat).forEach(function (key) {
-        //         var jsondatnest = jsondat[key];
-        //         var row = [];
-        //         Object.keys(jsondatnest).forEach(function (key1) {
-        //             row.push(jsondatnest[key1]);
-        //         });
-        //         rows.push(row);
-        //     });
+        // for (let i = 0; i < 50; i++) {
+        //     if (i % 2 == 0) {
+        //         rows.push(["Magnetometer1", Math.random(), Math.random(), Math.random(), (Math.random() * 50) + 10, (Math.random() * 45) + 10, null, null, (Math.random() * 10) + 5, Date.now()]);
+        //     } else {
+        //         rows.push(["Accelerometer1", Math.random() * 4 + 5, Math.random() * 3 - 2, Math.random() * 10 - 8, null, null, (Math.random() * 50) + 10, (Math.random() * 45) + 10, (Math.random() * 10) + 5, Date.now()]);
+        //     }
         // }
+        var count = 0;
+        var acc = false;
+        if (Object.keys(jsondat).length > 0) {
+            Object.keys(jsondat).forEach(function (key) {
+                var jsondatnest = jsondat[key];
+                var row = [];
+                Object.keys(jsondatnest).forEach(function (key1) {
+                    if (jsondatnest['name'] == "Magnetometer1" && count == 6) {
+                        row.push(NaN);
+                        row.push(NaN);
+                        count += 2;
+                    } else if (jsondatnest['name'] == "Accelerometer1" && count == 4) {
+                        row.push(NaN);
+                        row.push(NaN);
+                        count += 2;
+                    }
+                    row.push(jsondatnest[key1]);
+                    count += 1;
+                });
+                rows.push(row);
+                count = 0;
+            });
+        }
+        console.log(rows);
 
         var data = new google.visualization.DataTable(); // create new data table ( empty will add more )
 
@@ -54,7 +67,6 @@ export function main(firebaseApp) { // main export function called in indext.htm
         data.addColumn('number', 'Actual Azimuth Angle <br>(degree)'); // Actual Azimuth Angle
         data.addColumn('number', 'Computed Elevation Angle <br>(degree)'); // Computed Elevation Angle
         data.addColumn('number', 'Actual Elevation Angle <br>(degree)'); // Actual Elevation angle
-        data.addColumn('number', 'Temperature <br>(Celsius)'); // Temperature
         data.addColumn('number', 'Timestamp'); // Timestamp
 
         data.addRows(rows); // add rows to the data object
@@ -168,38 +180,29 @@ export function main(firebaseApp) { // main export function called in indext.htm
         var rows_a_d = [[{ label: 'number' }, { type: 'number' }]];
         var rows_e_d = [[{ label: 'number' }, { type: 'number' }]];
 
-        if (jsondat != null | 1) {
-
-            // if (Object.keys(jsondat).length > 0) {
-            //     Object.keys(jsondat).forEach(function (key) {
-
-            //         if (jsondat[key]["sensor"] == "Magnetometer1") {
-            //             var row = [];
-            //             row = [jsondat[key]["timestamp"], jsondat[key]["x"]];
-            //             rows.push(row);
-            //         }
-            //         if (jsondat[key]["sensor"] == "Accelerometer1") {
-            //             var row = [];
-            //             row = [jsondat[key]["timestamp"], jsondat[key]["x"]];
-            //             rows2.push(row);
-            //         }
-            //     });
-
-
-            for (let i = 0; i < 50; i++) {
-                var t = Date.now();
-                sleep(1);
-                rows_acc_x.push([t, Math.random()]);
-                rows_acc_y.push([t, Math.random()]);
-                rows_acc_z.push([t, Math.random()]);
-                rows_mag_x.push([t, Math.random()]);
-                rows_mag_y.push([t, Math.random()]);
-                rows_mag_z.push([t, Math.random()]);
-                rows_t_d.push([t, Math.random()]);
-                rows_a_d.push([t, Math.random()]);
-                rows_e_d.push([t, Math.random()]);
+        var rows = [];
+        if (jsondat != null) {
+            console.log(jsondat);
+            if (Object.keys(jsondat).length > 0) {
+                Object.keys(jsondat).forEach(function (key) {
+                    console.log(jsondat[key]);
+                    if (jsondat[key]['name'] == "Magnetometer1") {
+                        rows_mag_x.push([jsondat[key]["ts"], jsondat[key]["x"]]);
+                        rows_mag_y.push([jsondat[key]["ts"], jsondat[key]["y"]]);
+                        rows_mag_z.push([jsondat[key]["ts"], jsondat[key]["z"]]);
+                        rows_a_d.push([jsondat[key]["ts"], ((jsondat[key]["a_a"] - jsondat[key]["a_a"]) / jsondat[key]["c_a"]) * 100]);
+                    }
+                    if (jsondat[key]['name'] == "Accelerometer1") {
+                        var row = [];
+                        rows_acc_x.push([jsondat[key]["ts"], jsondat[key]["x"]]);
+                        rows_acc_y.push([jsondat[key]["ts"], jsondat[key]["y"]]);
+                        rows_acc_z.push([jsondat[key]["ts"], jsondat[key]["z"]]);
+                        rows_e_d.push([jsondat[key]["ts"], ((jsondat[key]["a_e"] - jsondat[key]["c_e"]) / jsondat[key]["c_e"]) * 100]);
+                    }
+                });
             }
 
+            console.log(rows_mag_z);
 
             var acc_x = google.visualization.arrayToDataTable(rows_acc_x, false);
             var acc_y = google.visualization.arrayToDataTable(rows_acc_y, false);
@@ -253,7 +256,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
                 // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
                 // vAxis: { title: 'Sensor Value Reading 1', minValue: 0, maxValue: 15 },
                 hAxis: { title: 'Time (timestamp)' },
-                vAxis: { title: 'Magnetometer X (g)' },
+                vAxis: { title: 'Magnetometer X (uT)' },
                 legend: 'none',
                 width: 500,
                 height: 300,
@@ -265,7 +268,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
                 // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
                 // vAxis: { title: 'Sensor Value Reading 2', minValue: 0, maxValue: 15 },
                 hAxis: { title: 'Time (timestamp)' },
-                vAxis: { title: 'Magnetometer Y (g)' },
+                vAxis: { title: 'Magnetometer Y (uT)' },
                 width: 500,
                 height: 300
             };
@@ -276,21 +279,21 @@ export function main(firebaseApp) { // main export function called in indext.htm
                 // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
                 // vAxis: { title: 'Sensor Value Reading 2', minValue: 0, maxValue: 15 },
                 hAxis: { title: 'Time (timestamp)' },
-                vAxis: { title: 'Magnetometer Z (g)' },
+                vAxis: { title: 'Magnetometer Z (uT)' },
                 width: 500,
                 height: 300
             };
 
-            var options_t_d = {
-                title: 'Temperature Reading vs. Timestamp',
-                // customizable axis choise below default is autofit
-                // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
-                // vAxis: { title: 'Sensor Value Reading 2', minValue: 0, maxValue: 15 },
-                hAxis: { title: 'Time (timestamp)' },
-                vAxis: { title: 'Temperature Percent Difference (%)' },
-                width: 500,
-                height: 300
-            };
+            // var options_t_d = {
+            //     title: 'Temperature Reading vs. Timestamp',
+            //     // customizable axis choise below default is autofit
+            //     // hAxis: { title: 'Time', minValue: 0, maxValue: 15 },
+            //     // vAxis: { title: 'Sensor Value Reading 2', minValue: 0, maxValue: 15 },
+            //     hAxis: { title: 'Time (timestamp)' },
+            //     vAxis: { title: 'Temperature Percent Difference (%)' },
+            //     width: 500,
+            //     height: 300
+            // };
 
             var options_e_d = {
                 title: 'Elevation Reading % Difference vs. Timestamp',
@@ -379,8 +382,8 @@ export function main(firebaseApp) { // main export function called in indext.htm
             var graph6 = document.createElement('div'); // stylistically creating the div for the sixth graph
             graph6.id = 'chart_div6'; // giving the second graph a html id
 
-            var graph7 = document.createElement('div'); // stylistically creating the div for the seventh graph
-            graph7.id = 'chart_div7'; // giving the second graph a html id
+            // var graph7 = document.createElement('div'); // stylistically creating the div for the seventh graph
+            // graph7.id = 'chart_div7'; // giving the second graph a html id
 
             var graph8 = document.createElement('div'); // stylistically creating the div for the eigth graph
             graph8.id = 'chart_div8'; // giving the second graph a html id
@@ -397,7 +400,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             cell5.appendChild(graph5); // putting graph 2 in the respective column 5 
             cell6.appendChild(graph6); // putting graph 3 in the respective column 6
 
-            cell7.appendChild(graph7); // putting graph 1 in the respective column 4
+            // cell7.appendChild(graph7); // putting graph 1 in the respective column 4
             cell8.appendChild(graph8); // putting graph 2 in the respective column 5 
             cell9.appendChild(graph9); // putting graph 3 in the respective column 6
 
@@ -407,7 +410,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             row2.appendChild(cell4); // appending cell1 to the first row
             row2.appendChild(cell5); // appending cell2 to the first row
             row2.append(cell6); // appending cell3 to the first row
-            row3.appendChild(cell7); // appending cell1 to the first row
+            // row3.appendChild(cell7); // appending cell1 to the first row
             row3.appendChild(cell8); // appending cell2 to the first row
             row3.append(cell9); // appending cell3 to the first row
 
@@ -426,7 +429,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             var chart4 = new google.visualization.ScatterChart(document.getElementById('chart_div4')); // creating chart div1 object utilizing google visualization api
             var chart5 = new google.visualization.ScatterChart(document.getElementById('chart_div5')); // creating chart div2 object utilizing google visualization api
             var chart6 = new google.visualization.ScatterChart(document.getElementById('chart_div6')); // creating chart div3 object utilizing google visualization api
-            var chart7 = new google.visualization.ScatterChart(document.getElementById('chart_div7')); // creating chart div1 object utilizing google visualization api
+            // var chart7 = new google.visualization.ScatterChart(document.getElementById('chart_div7')); // creating chart div1 object utilizing google visualization api
             var chart8 = new google.visualization.ScatterChart(document.getElementById('chart_div8')); // creating chart div2 object utilizing google visualization api
             var chart9 = new google.visualization.ScatterChart(document.getElementById('chart_div9')); // creating chart div3 object utilizing google visualization api
 
@@ -437,7 +440,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             chart4.draw(mag_x, options_mag_x); // drawing the fourth chart
             chart5.draw(mag_y, options_mag_y); // drawing the fifth chart
             chart6.draw(mag_z, options_mag_z); // drawing the sixth chart
-            chart7.draw(t_d, options_t_d); // drawing the seventh chart
+            // chart7.draw(t_d, options_t_d); // drawing the seventh chart
             chart8.draw(a_d, options_a_d); // drawing the eight chart
             chart9.draw(e_d, options_e_d); // drawing the ninth chart
 
@@ -475,20 +478,18 @@ export function main(firebaseApp) { // main export function called in indext.htm
 
             google.charts.load('current', { 'packages': ['corechart'] });
             const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
-            xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123'); // puzzle
+            xhr.open('GET', 'https://7w4yj6h87i.execute-api.us-east-2.amazonaws.com/default/get-data'); // puzzle
             xhr.responseType = 'json';
             xhr.send();
             xhr.onreadystatechange = (e) => {
                 var jsondat = xhr.response;
+                console.log(jsondat);
                 if (jsondat != null) {
                     draw_table(jsondat);
                 } else {
                     console.log("Null contents");
                 }
             };
-
-            draw_table(); // samuel-d
-
         }
 
         document.getElementById('b1').value = 'on';
@@ -540,17 +541,16 @@ export function main(firebaseApp) { // main export function called in indext.htm
                 document.getElementById('b3').value = 'off'; // reset b3 button to off
             }
 
-            var jsondat = null;
-            draw_graph(jsondat);
+            // draw_graph(jsondat);
 
-            // const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
-            // xhr.open('GET', 'https://kcze3io03f.execute-api.us-east-2.amazonaws.com/default/testing123');
-            // xhr.responseType = 'json';
-            // xhr.send();
-            // xhr.onreadystatechange = (e) => {
-            //     var jsondat = xhr.response;
-            //     draw_graph(jsondat);
-            // };
+            const xhr = new XMLHttpRequest(); // create Http request to the endpoint that stores data from AWS Lambda Script and Gateway API
+            xhr.open('GET', 'https://7w4yj6h87i.execute-api.us-east-2.amazonaws.com/default/get-data');
+            xhr.responseType = 'json';
+            xhr.send();
+            xhr.onreadystatechange = (e) => {
+                var jsondat = xhr.response;
+                draw_graph(jsondat);
+            };
 
             document.getElementById('b2').value = 'on';
 

@@ -1,0 +1,69 @@
+[1/5] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 partition --type app C:/Users/sdixo/Scripts/Espressif/controls/build/partition_table/partition-table.bin C:/Users/sdixo/Scripts/Espressif/controls/build/controls.bin"
+controls.bin binary size 0xd28f0 bytes. Smallest app partition is 0x100000 bytes. 0x2d710 bytes (18%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\bootloader\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/sdixo/Scripts/Espressif/controls/build/bootloader/bootloader.bin"
+Bootloader binary size 0x66f0 bytes. 0x910 bytes (8%) free.
+[2/3] cmd.exe /C "cd /D C:\Espressif\frameworks\esp-idf-v5.0\components\esptool_py && C:\esp\tools\tools\cmake\3.24.0\bin\cmake.exe -D IDF_PATH=C:/Espressif/frameworks/esp-idf-v5.0 -D SERIAL_TOOL=c:/esp/tools/python_env/idf5.0_py3.8_env/Scripts/python.exe;;C:/Espressif/frameworks/esp-idf-v5.0/components/esptool_py/esptool/esptool.py;--chip;esp32 -D SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args -D WORKING_DIRECTORY=C:/Users/sdixo/Scripts/Espressif/controls/build -P C:/Espressif/frameworks/esp-idf-v5.0/components/esptool_py/run_serial_tool.cmake"
+esptool esp32 -p COM4 -b 115200 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 bootloader/bootloader.bin 0x10000 controls.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.4
+Serial port COM4
+Connecting.......
+Chip is ESP32-D0WD (revision v1.0)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: 90:38:0c:88:94:40
+Stub is already running. No upload is necessary.
+Configuring flash size...
+Auto-detected Flash size: 4MB
+Flash will be erased from 0x00001000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x000e2fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+Compressed 26352 bytes to 16387...
+Writing at 0x00001000... (50 %)
+Writing at 0x000076f0... (100 %)
+Wrote 26352 bytes (16387 compressed) at 0x00001000 in 2.0 seconds (effective 106.3 kbit/s)...
+Hash of data verified.
+Compressed 862448 bytes to 551500...
+Writing at 0x00010000... (2 %)
+Writing at 0x00019651... (5 %)
+Writing at 0x000243a2... (8 %)
+Writing at 0x0002b77c... (11 %)
+Writing at 0x00031b00... (14 %)
+Writing at 0x0003c443... (17 %)
+Writing at 0x000420b3... (20 %)
+Writing at 0x00047c16... (23 %)
+Writing at 0x0004db29... (26 %)
+Writing at 0x00052f9d... (29 %)
+Writing at 0x0005875d... (32 %)
+Writing at 0x0005df7f... (35 %)
+Writing at 0x00063835... (38 %)
+Writing at 0x00069353... (41 %)
+Writing at 0x0006efb6... (44 %)
+Writing at 0x00074b97... (47 %)
+Writing at 0x00079d6f... (50 %)
+Writing at 0x0007f143... (52 %)
+Writing at 0x00084363... (55 %)
+Writing at 0x00089b09... (58 %)
+Writing at 0x0008f24e... (61 %)
+Writing at 0x00094e99... (64 %)
+Writing at 0x0009a596... (67 %)
+Writing at 0x0009ff22... (70 %)
+Writing at 0x000a6214... (73 %)
+Writing at 0x000ab960... (76 %)
+Writing at 0x000b1ea0... (79 %)
+Writing at 0x000b7505... (82 %)
+Writing at 0x000bcfd7... (85 %)
+Writing at 0x000c342c... (88 %)
+Writing at 0x000cd9c8... (91 %)
+Writing at 0x000d3ce7... (94 %)
+Writing at 0x000d97dc... (97 %)
+Writing at 0x000dedb4... (100 %)
+Wrote 862448 bytes (551500 compressed) at 0x00010000 in 49.0 seconds (effective 140.7 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 103...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 251.2 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...

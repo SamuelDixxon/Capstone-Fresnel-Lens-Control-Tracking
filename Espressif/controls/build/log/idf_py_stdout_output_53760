@@ -1,0 +1,63 @@
+[1/9] Performing build step for 'bootloader'
+[1/1] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\bootloader\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/Users/sdixo/Scripts/Espressif/controls/build/bootloader/bootloader.bin"
+Bootloader binary size 0x66f0 bytes. 0x910 bytes (8%) free.
+[2/7] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/mcpwm_bdc_control_example_main.c.obj
+In file included from C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:33:
+C:/Espressif/frameworks/esp-idf-v5.0/components/driver/deprecated/driver/mcpwm.h:15:2: warning: #warning "legacy MCPWM driver is deprecated, please migrate to the new driver (include driver/mcpwm_prelude.h)" [-Wcpp]
+   15 | #warning "legacy MCPWM driver is deprecated, please migrate to the new driver (include driver/mcpwm_prelude.h)"
+      |  ^~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'post_rest_function':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:339:23: warning: initialization of 'char *' from incompatible pointer type 'char (*)[200]' [-Wincompatible-pointer-types]
+  339 |     char *post_data = &buffer;
+      |                       ^
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'MMC560_init':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:543:13: warning: unused variable 'test_read' [-Wunused-variable]
+  543 |     uint8_t test_read = 0x00;
+      |             ^~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'MCP98_init':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:680:13: warning: unused variable 'test_read' [-Wunused-variable]
+  680 |     uint8_t test_read = 0x00;
+      |             ^~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c: In function 'Set_SystemTime_SNTP':
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1011:16: warning: unused variable 'local' [-Wunused-variable]
+ 1011 |     struct tm *local = localtime(&now);
+      |                ^~~~~
+At top level:
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:1108:13: warning: 'mcpwm_example_brushed_motor_control' defined but not used [-Wunused-function]
+ 1108 | static void mcpwm_example_brushed_motor_control(void *arg)
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:926:13: warning: 'update_angle_routine' defined but not used [-Wunused-function]
+  926 | static void update_angle_routine()
+      |             ^~~~~~~~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:921:13: warning: 'delay_routine' defined but not used [-Wunused-function]
+  921 | static void delay_routine()
+      |             ^~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:915:13: warning: 'post_routine' defined but not used [-Wunused-function]
+  915 | static void post_routine()
+      |             ^~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:894:13: warning: 'sensor_routine' defined but not used [-Wunused-function]
+  894 | static void sensor_routine()
+      |             ^~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:696:13: warning: 'i2c_master_init' defined but not used [-Wunused-function]
+  696 | static void i2c_master_init()
+      |             ^~~~~~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:677:13: warning: 'MCP98_init' defined but not used [-Wunused-function]
+  677 | static void MCP98_init()
+      |             ^~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:540:13: warning: 'MMC560_init' defined but not used [-Wunused-function]
+  540 | static void MMC560_init()
+      |             ^~~~~~~~~~~
+C:/Users/sdixo/Scripts/Espressif/controls/main/mcpwm_bdc_control_example_main.c:461:13: warning: 'MMA845_init' defined but not used [-Wunused-function]
+  461 | static void MMA845_init()
+      |             ^~~~~~~~~~~
+[3/7] Linking C static library esp-idf\main\libmain.a
+[4/7] Generating ld/sections.ld
+[5/7] Linking CXX executable controls.elf
+[6/7] Generating binary image from built executable
+esptool.py v4.4
+Creating esp32 image...
+Merged 25 ELF sections
+Successfully created esp32 image.
+Generated C:/Users/sdixo/Scripts/Espressif/controls/build/controls.bin
+[7/7] cmd.exe /C "cd /D C:\Users\sdixo\Scripts\Espressif\controls\build\esp-idf\esptool_py && c:\esp\tools\python_env\idf5.0_py3.8_env\Scripts\python.exe C:/Espressif/frameworks/esp-idf-v5.0/components/partition_table/check_sizes.py --offset 0x8000 partition --type app C:/Users/sdixo/Scripts/Espressif/controls/build/partition_table/partition-table.bin C:/Users/sdixo/Scripts/Espressif/controls/build/controls.bin"
+controls.bin binary size 0xd28f0 bytes. Smallest app partition is 0x100000 bytes. 0x2d710 bytes (18%) free.

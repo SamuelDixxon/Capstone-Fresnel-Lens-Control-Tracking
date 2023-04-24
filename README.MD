@@ -9,17 +9,18 @@ utilized in a larger thermo-chemical conntrol system where energy can be capture
 ## Description
 
 
-## Help
+/*## Help
 
 Any advise for common problems or issues.
 ```
 command to run if program contains helper info
-```
+```*/
 
 ## Authors
 
 Contributors names and contact info  
 [@ Jordan George](https://www.linkedin.com/in/jordan-george-05993a204/)
+
 [@ Samuel Dixon](https://www.linkedin.com/in/samuel-dixon-9816ba19b/)
 
 ## Version History
@@ -31,6 +32,13 @@ Contributors names and contact info
     * Initial Release
 
 ## Acknowledgments
+We would like to extend a warm thanks to our sponsor, Dr. Madsen, who works in the Electrical Engineering 
+department as a professor at Texas A&M. Additionally, we would like to thank the supporting staff in the
+electrical engineering department who coordinate the capstone course - specifically Dr. Lusher, Dr. Stavros,
+Dr. Jang, and Dr. Nowka. Lastly, we would like to thank our TA, Dalton Cyr, and our peers who supported us on 
+this journey.
+
+
 
 Inspiration, code snippets, etc.
 * [awesome-readme](https://github.com/matiassingers/awesome-readme)

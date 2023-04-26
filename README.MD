@@ -4,10 +4,10 @@ This is the repository that contains all the work done on the capstone project f
 The world is rapidly transitioning its change from renewable to non-renewable energy sources.
 The idea behind this project was to help our sponsor develop an IoT based solution to use motors
 for a fresnel lens to track the sun. In the broader scope, this lens focussing element will be 
-utilized in a larger thermo-chemical conntrol system where energy can be captured from the sun.
+utilized in a larger thermo-chemical conntrol system where energy can be captured from the sun 
+and stored for future use.
 
-## Description
-
+## File structure and description
 
 /*## Help
 

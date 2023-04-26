@@ -21,8 +21,10 @@ command to run if program contains helper info
 
 Contributors names and contact info  
 [@ Jordan George](https://www.linkedin.com/in/jordan-george-05993a204/)
+   - jgeorge5@tamu.edu
 
 [@ Samuel Dixon](https://www.linkedin.com/in/samuel-dixon-9816ba19b/)
+   - samueldixon@tamu.edu
 
 ## Version History
 

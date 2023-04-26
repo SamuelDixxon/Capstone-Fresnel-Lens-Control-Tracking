@@ -9,12 +9,13 @@ and stored for future use.
 
 ## File structure and description
 
-/*## Help
+```
+## Help
 
 Any advise for common problems or issues.
-```
+
 command to run if program contains helper info
-```*/
+```
 
 ## Authors
 

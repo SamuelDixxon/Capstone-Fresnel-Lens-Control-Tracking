@@ -40,9 +40,9 @@ Algorithm theory
 
 Code
 * ESP-IDF HTTP Requests (Firebase)
-*     * [GET](https://www.youtube.com/watch?v=8uBIBfUBCt8)
-*     * [POST](https://www.youtube.com/watch?v=99McYBmKcTw)
-*        * Note these are useful examples as you have to generate SSL pem certificate files for HTTPS requests to nodes in the NoSQL datbase in the firebase              software suite
+     * [GET](https://www.youtube.com/watch?v=8uBIBfUBCt8)
+     * [POST](https://www.youtube.com/watch?v=99McYBmKcTw)
+     * Note these are useful examples as you have to generate SSL pem certificate files for HTTPS requests to nodes in the NoSQL datbase in the firebase              software suite
 * [ESP-IDF I2C Configuration]()
 * [ESP-IDF Connecting to Wifi]()
 * [ESP-IDF PWM and Motor Control]()

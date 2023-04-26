@@ -25,27 +25,48 @@ Contributors names and contact info
 
 ## Version History
 
-* 1.0
-    * Project major revision 1 
+* 1.0 (4/26/2023)
+    * Project major revision 1 with two programs for controlling the motors found here
+    *    [Automatic Control]()
+    *    [Manual Control]()
+
+
+## Resources utilized
+
+Design Related Documents
+* Magnetometer datasheet and resources
+*     [Datasheet](https://www.espruino.com/files/MMC5603NJ.pdf)
+*     
+* Accelerometer datahseet and resources
+*     [Datasheet](https://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf)
+* 
+
+
+
+Code
+* ESP-IDF HTTP Requests (Firebase)
+*  [GET](https://www.youtube.com/watch?v=8uBIBfUBCt8)
+*  * [POST](https://www.youtube.com/watch?v=99McYBmKcTw)
+     * Note these are useful examples as you have to generate SSL pem certificate files for HTTPS requests to nodes in the NoSQL datbase in the firebase              software suite
+* [ESP-IDF I2C Configuration]()
+* [ESP-IDF Connecting to Wifi](https://www.youtube.com/@simsiotdevices6219)
+* [ESP-IDF PWM and Motor Control](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/mcpwm.html)
+* [Joystick mmodule in java script](https://github.com/bobboteck/JoyStick)
+* [System Network Time Protocol (STNP) Time Synchronization](https://techtutorialsx.com/2021/09/01/esp32-system-time-and-sntp/)
+* [Configuring a lambda script in AWS and using API Gateway trigger](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
+* [awesome-readme](https://github.com/matiassingers/awesome-readme)
+
+Algorithm theory
+* [Azimuth Angle Computation with system parametric data]
+* [Elevation Angle Computation](https://www.cuemath.com/trigonometry/angle-of-elevation/)
+
 
 ## Acknowledgments
 We would like to extend a warm thanks to our sponsor, Dr. Madsen, who works in the Electrical Engineering 
 department as a professor at Texas A&M. Additionally, we would like to thank the supporting staff in the
 electrical engineering department who coordinate the capstone course - specifically Dr. Lusher, Dr. Stavros,
 Dr. Jang, and Dr. Nowka. Lastly, we would like to thank our TA, Dalton Cyr, and our peers who supported us on 
-this journey.
+this journey. 
 
-Inspiration, code snippets, etc.
-Algorithm theory
+Additionally I would like to thank the creator behind the IoT Sims Devices youtube channel for providing extensive examples for various peripherals in the ESP32.
 
-Code
-* ESP-IDF HTTP Requests (Firebase)
-     * [GET](https://www.youtube.com/watch?v=8uBIBfUBCt8)
-     * [POST](https://www.youtube.com/watch?v=99McYBmKcTw)
-     * Note these are useful examples as you have to generate SSL pem certificate files for HTTPS requests to nodes in the NoSQL datbase in the firebase              software suite
-* [ESP-IDF I2C Configuration]()
-* [ESP-IDF Connecting to Wifi]()
-* [ESP-IDF PWM and Motor Control]()
-* [System Network Time Protocol (STNP) Time Synchronization]()
-* [Configuring a lambda script in AWS and using API Gateway trigger]()
-* [awesome-readme](https://github.com/matiassingers/awesome-readme)

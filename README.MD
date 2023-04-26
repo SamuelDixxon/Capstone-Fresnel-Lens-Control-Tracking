@@ -25,11 +25,8 @@ Contributors names and contact info
 
 ## Version History
 
-* 0.2
-    * Various bug fixes and optimizations
-    * See [commit change]() or See [release history]()
-* 0.1
-    * Initial Release
+* 1.0
+    * Project major revision 1 
 
 ## Acknowledgments
 We would like to extend a warm thanks to our sponsor, Dr. Madsen, who works in the Electrical Engineering 
@@ -38,11 +35,17 @@ electrical engineering department who coordinate the capstone course - specifica
 Dr. Jang, and Dr. Nowka. Lastly, we would like to thank our TA, Dalton Cyr, and our peers who supported us on 
 this journey.
 
-
-
 Inspiration, code snippets, etc.
+Algorithm theory
+
+Code
+* ESP-IDF HTTP Requests (Firebase)
+*     * [GET](https://www.youtube.com/watch?v=8uBIBfUBCt8)
+*     * [POST](https://www.youtube.com/watch?v=99McYBmKcTw)
+*        * Note these are useful examples as you have to generate SSL pem certificate files for HTTPS requests to nodes in the NoSQL datbase in the firebase              software suite
+* [ESP-IDF I2C Configuration]()
+* [ESP-IDF Connecting to Wifi]()
+* [ESP-IDF PWM and Motor Control]()
+* [System Network Time Protocol (STNP) Time Synchronization]()
+* [Configuring a lambda script in AWS and using API Gateway trigger]()
 * [awesome-readme](https://github.com/matiassingers/awesome-readme)
-* [PurpleBooth](https://gist.github.com/PurpleBooth/109311bb0361f32d87a2)
-* [dbader](https://github.com/dbader/readme-template)
-* [zenorocha](https://gist.github.com/zenorocha/4526327)
-* [fvcproductions](https://gist.github.com/fvcproductions/1bfc2d4aecb01a834b46)

@@ -176,7 +176,6 @@ export function main(firebaseApp) { // main export function called in indext.htm
         var rows_mag_y = [[{ label: 'number' }, { type: 'number' }]];
         var rows_mag_z = [[{ label: 'number' }, { type: 'number' }]];
 
-        var rows_t_d = [[{ label: 'number' }, { type: 'number' }]];
         var rows_a_d = [[{ label: 'number' }, { type: 'number' }]];
         var rows_e_d = [[{ label: 'number' }, { type: 'number' }]];
 
@@ -190,19 +189,19 @@ export function main(firebaseApp) { // main export function called in indext.htm
                         rows_mag_x.push([jsondat[key]["ts"], jsondat[key]["x"]]);
                         rows_mag_y.push([jsondat[key]["ts"], jsondat[key]["y"]]);
                         rows_mag_z.push([jsondat[key]["ts"], jsondat[key]["z"]]);
-                        rows_a_d.push([jsondat[key]["ts"], ((jsondat[key]["a_a"] - jsondat[key]["a_a"]) / jsondat[key]["c_a"]) * 100]);
+                        rows_a_d.push([jsondat[key]["ts"], jsondat[key]["aa"]]);
                     }
                     if (jsondat[key]['name'] == "Accelerometer1") {
                         var row = [];
                         rows_acc_x.push([jsondat[key]["ts"], jsondat[key]["x"]]);
                         rows_acc_y.push([jsondat[key]["ts"], jsondat[key]["y"]]);
                         rows_acc_z.push([jsondat[key]["ts"], jsondat[key]["z"]]);
-                        rows_e_d.push([jsondat[key]["ts"], ((jsondat[key]["a_e"] - jsondat[key]["c_e"]) / jsondat[key]["c_e"]) * 100]);
+                        rows_e_d.push([jsondat[key]["ts"], (jsondat[key]["ae"])]);
                     }
                 });
             }
 
-            console.log(rows_mag_z);
+            console.log(rows_e_d);
 
             var acc_x = google.visualization.arrayToDataTable(rows_acc_x, false);
             var acc_y = google.visualization.arrayToDataTable(rows_acc_y, false);
@@ -212,7 +211,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             var mag_y = google.visualization.arrayToDataTable(rows_mag_y, false);
             var mag_z = google.visualization.arrayToDataTable(rows_mag_z, false);
 
-            var t_d = google.visualization.arrayToDataTable(rows_t_d, false);
+
             var a_d = google.visualization.arrayToDataTable(rows_a_d, false);
             var e_d = google.visualization.arrayToDataTable(rows_e_d, false);
 
@@ -348,7 +347,7 @@ export function main(firebaseApp) { // main export function called in indext.htm
             var t3 = document.createElement('h');
             t3.id = 't3';
             t3.className = 't';
-            t3.innerHTML = "Percent Difference Parametric Data";
+            t3.innerHTML = "Angle Parametric Data";
             var row3 = document.createElement('tr'); // creating first row of table of graphs
             row3.id = 'row3'; // assigning id to row 2 
 

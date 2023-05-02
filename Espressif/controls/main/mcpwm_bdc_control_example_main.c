@@ -935,7 +935,7 @@ static void sensor_routine()
 
 static void post_routine()
 {
-    post_rest_function(0); // post data corresponding to magnetometer
+    post_rest_function(0); // post data corresponding to accelerometer
     post_rest_function(1); // post data corresponding to magnetometer
 }
 
@@ -1168,102 +1168,109 @@ void app_main()
 
     i2c_master_init(); // initialize I2C serial commmunication with the esp32 and set internal pull-ups / SDA / SCL lines
     MMA845_init();     // initialize the accelerometer by adjusting the control registers to desired polling / resolution settings
-    // MMC560_init();     // initialize the magnetometer by adjusting the control registers to desired polling / resolution setting
-    gpio_init();
-    Set_SystemTime_SNTP(); // configuring the system time and sync with the system network time
-
-    // 1. mcpwm gpio initialization
-    mcpwm_example_gpio_initialize();
-
-    // 2. initial mcpwm configuration
-    printf("Configuring Initial Parameters of mcpwm...\n");
-    mcpwm_config_t pwm_config;
-    pwm_config.frequency = 10000; // frequency = 10kHz,
-    pwm_config.cmpr_a = 0;        // duty cycle of PWMxA = 0
-    pwm_config.cmpr_b = 0;        // duty cycle of PWMxb = 0
-    pwm_config.counter_mode = MCPWM_UP_COUNTER;
-    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); // Configure  PWM0A & PWM0B with above settings
-
-    double dc_x;
-    double dc_y;
-    manual = 1; // hardcode to 1 for now but later update interaction between web and mcu
 
     while (1)
     {
-        if (manual == 1)
-        {
-            rest_get_pwm();
-            dc_x = (((double)pwm_x)) * 0.75; // only allow a max voltage on lazy suzan motor of 75 % , because moves very quickly
-            dc_y = (((double)pwm_y));        // allow maximum voltage on linear actuator motor as moves rather slowly
-
-            if (pwm_x < 0 && pwm_x >= -100)
-            { // backward operation
-                dc_x = fabs(dc_x);
-                ESP_LOGI(TAG, "Backward x motor with %f", dc_x);
-                motor1_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
-            }
-            else if (pwm_x > 0 && pwm_x <= 100)
-            { // forward operation
-                dc_x = fabs(dc_x);
-                ESP_LOGI(TAG, "Forward x motor %f", dc_x);
-                motor1_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
-            }
-            else if (pwm_x == 0)
-            {
-                motor1_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
-                i2c_acc_sample();                     // collect acceleration sample when not moving
-                // i2c_mag_sample();                     // collect magnetometer sample when not moving
-                post_rest_function(1);                // post the data
-            }
-            if (pwm_y < 0 && pwm_y >= -100)
-            { // backward operation
-                dc_y = fabs(dc_y);
-                ESP_LOGI(TAG, "Backward y motor %f", dc_y);
-                motor2_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
-            }
-            else if (pwm_y > 0 && pwm_y <= 100)
-            { // forward operation
-                dc_y = fabs(dc_y);
-                ESP_LOGI(TAG, "Forward y motor %f", dc_y);
-                motor2_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
-            }
-            else if (pwm_y == 0)
-            {
-                motor2_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
-                i2c_acc_sample(); // collect aceleration sample when not moving
-                // i2c_mag_sample();                      // collect magnetometer sample when not moving
-                // post_rest_function(0); // post the data
-                // POST ROUTINE TESTING FOR DATABASE
-                // for (int i = 0; i < 2; i++)
-                // {
-                //     post_rest_function(i); // posting two indices corresponding to each of the sensors
-                // }
-            }
-        }
-
-        // ORIENTATION TESTING FOR ACCELEROMETER
-        // for (int i = 0; i < 1000; i++)
-        // {
-        //     vTaskDelay(500 / portTICK_PERIOD_MS);
-        //     i2c_acc_sample();
-        //     switch (i)
-        //     {
-        //     case (0):
-        //         ESP_LOGI(TAG, "X - Orientation Test x: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
-        //         break;
-        //     case (1):
-        //         ESP_LOGI(TAG, "Y - Orientation Test y: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
-        //         break;
-        //     case (2):
-        //         ESP_LOGI(TAG, "Y - Orientation Test z: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
-        //         break;
-        //     default:
-        //         break;
-        //     }
-        //     // i2c_mag_sample();
-        // }
+        i2c_acc_sample();
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        post_rest_function(0);
     }
+    // MMC560_init();     // initialize the magnetometer by adjusting the control registers to desired polling / resolution setting
+    // gpio_init();
+    // Set_SystemTime_SNTP(); // configuring the system time and sync with the system network time
+
+    // // 1. mcpwm gpio initialization
+    // mcpwm_example_gpio_initialize();
+
+    // // 2. initial mcpwm configuration
+    // printf("Configuring Initial Parameters of mcpwm...\n");
+    // mcpwm_config_t pwm_config;
+    // pwm_config.frequency = 10000; // frequency = 10kHz,
+    // pwm_config.cmpr_a = 0;        // duty cycle of PWMxA = 0
+    // pwm_config.cmpr_b = 0;        // duty cycle of PWMxb = 0
+    // pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    // pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    // mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); // Configure  PWM0A & PWM0B with above settings
+
+    // double dc_x;
+    // double dc_y;
+    // manual = 1; // hardcode to 1 for now but later update interaction between web and mcu
+
+    // while (1)
+    // {
+    //     if (manual == 1)
+    //     {
+    //         rest_get_pwm();
+    //         dc_x = (((double)pwm_x)) * 0.75; // only allow a max voltage on lazy suzan motor of 75 % , because moves very quickly
+    //         dc_y = (((double)pwm_y));        // allow maximum voltage on linear actuator motor as moves rather slowly
+
+    //         if (pwm_x < 0 && pwm_x >= -100)
+    //         { // backward operation
+    //             dc_x = fabs(dc_x);
+    //             ESP_LOGI(TAG, "Backward x motor with %f", dc_x);
+    //             motor1_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
+    //         }
+    //         else if (pwm_x > 0 && pwm_x <= 100)
+    //         { // forward operation
+    //             dc_x = fabs(dc_x);
+    //             ESP_LOGI(TAG, "Forward x motor %f", dc_x);
+    //             motor1_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_x);
+    //         }
+    //         else if (pwm_x == 0)
+    //         {
+    //             motor1_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+    //             i2c_acc_sample();                     // collect acceleration sample when not moving
+    //             // i2c_mag_sample();                     // collect magnetometer sample when not moving
+    //             post_rest_function(1);                // post the data
+    //         }
+    //         if (pwm_y < 0 && pwm_y >= -100)
+    //         { // backward operation
+    //             dc_y = fabs(dc_y);
+    //             ESP_LOGI(TAG, "Backward y motor %f", dc_y);
+    //             motor2_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
+    //         }
+    //         else if (pwm_y > 0 && pwm_y <= 100)
+    //         { // forward operation
+    //             dc_y = fabs(dc_y);
+    //             ESP_LOGI(TAG, "Forward y motor %f", dc_y);
+    //             motor2_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, dc_y);
+    //         }
+    //         else if (pwm_y == 0)
+    //         {
+    //             motor2_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+    //             i2c_acc_sample(); // collect aceleration sample when not moving
+    //             // i2c_mag_sample();                      // collect magnetometer sample when not moving
+    //             // post_rest_function(0); // post the data
+    //             // POST ROUTINE TESTING FOR DATABASE
+    //             // for (int i = 0; i < 2; i++)
+    //             // {
+    //             //     post_rest_function(i); // posting two indices corresponding to each of the sensors
+    //             // }
+    //         }
+    //     }
+
+    // ORIENTATION TESTING FOR ACCELEROMETER
+    // for (int i = 0; i < 1000; i++)
+    // {
+    //     vTaskDelay(500 / portTICK_PERIOD_MS);
+    //     i2c_acc_sample();
+    //     switch (i)
+    //     {
+    //     case (0):
+    //         ESP_LOGI(TAG, "X - Orientation Test x: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
+    //         break;
+    //     case (1):
+    //         ESP_LOGI(TAG, "Y - Orientation Test y: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
+    //         break;
+    //     case (2):
+    //         ESP_LOGI(TAG, "Y - Orientation Test z: %f y: %f z: %f", accd.x * (9.80665 / 4096), accd.y * (9.80665 / 4096), accd.z * (9.80665 / 4096));
+    //         break;
+    //     default:
+    //         break;
+    //     }
+    //     // i2c_mag_sample();
+    // }
+    // }
 }
 
 // ESP_LOGI(TAG, "Caught key time parametrics with following parameters: Day: %d Month: %d Year: %d Hour: %d Minute: %d Second: %d", day, month, year, hour, minute, second);

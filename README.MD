@@ -35,10 +35,10 @@ Contributors names and contact info
 
 Design Related Documents
 * Magnetometer datasheet and resources
-* - [Datasheet](https://www.espruino.com/files/MMC5603NJ.pdf)
+   * [Datasheet](https://www.espruino.com/files/MMC5603NJ.pdf)
 *     
 * Accelerometer datahseet and resources
-* - [Datasheet](https://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf)
+   * [Datasheet](https://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf)
 * 
 
 

@@ -7,6 +7,7 @@ for a fresnel lens to track the sun. In the broader scope, this lens focussing e
 utilized in a larger thermo-chemical conntrol system where energy can be captured from the sun 
 and stored for future use.
 
+<!-- 
 ## File structure and description
 
 ```
@@ -15,7 +16,7 @@ and stored for future use.
 Any advise for common problems or issues.
 
 command to run if program contains helper info
-```
+``` -->
 
 ## Authors
 

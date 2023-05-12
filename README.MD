@@ -27,8 +27,8 @@ Contributors names and contact info
 
 * 1.0 (4/26/2023)
     * Project major revision 1 with two programs for controlling the motors found here
-    *    [Automatic Control]()
     *    [Manual Control]()
+    *    [Automatic Control]()
 
 
 ## Resources utilized

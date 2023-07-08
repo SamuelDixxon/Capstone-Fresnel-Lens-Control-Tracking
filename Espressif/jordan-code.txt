@@ -1,0 +1,191 @@
+#include <stdio.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_attr.h"
+
+#include "driver/mcpwm.h"
+#include "soc/mcpwm_periph.h"
+
+#define EN1 4   //Set GPIO 4 as PWM0A
+#define EN2 16   //Set GPIO 16 as PWM0B
+#define IN1 17
+#define IN2 18
+#define IN3 32
+#define IN4 33
+      
+float duty = 0.0;
+
+static void mcpwm_example_gpio_initialize(void)
+{
+    printf("initializing mcpwm gpio...\n");
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, EN1);
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, EN2);
+}
+
+/**
+ * @brief motor 1 moves in forward direction, with duty cycle = duty %
+ */
+static void motor1_forward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num 
+, float duty_cycle)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_A, 
+MCPWM_DUTY_MODE_0); //call this each time, if operator was previously in 
+low/high state
+    gpio_set_level(IN1, 1);
+    gpio_set_level(IN2, 0);
+}
+
+/**
+ * @brief motor 2 moves in forward direction, with duty cycle = duty %
+ */
+static void motor2_forward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num 
+, float duty_cycle)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_B, 
+MCPWM_DUTY_MODE_0); //call this each time, if operator was previously in 
+low/high state
+    gpio_set_level(IN3, 1);
+    gpio_set_level(IN4, 0);
+}
+
+/**
+ * @brief motor 1 moves in backward direction, with duty cycle = duty %
+ */
+static void motor1_backward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t 
+timer_num , float duty_cycle)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_A, 
+MCPWM_DUTY_MODE_0);  //call this each time, if operator was previously in 
+low/high state
+    gpio_set_level(IN1, 0);
+    gpio_set_level(IN2, 1);
+}
+
+/**
+ * @brief motor 2 moves in backward direction, with duty cycle = duty %
+ */
+static void motor2_backward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t 
+timer_num , float duty_cycle)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, duty_cycle);
+    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_B, 
+MCPWM_DUTY_MODE_0);  //call this each time, if operator was previously in 
+low/high state
+    gpio_set_level(IN3, 0);
+    gpio_set_level(IN4, 1);
+}
+
+/**
+ * @brief motor 1 stop
+ */
+static void motor1_stop(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num)
+{
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    //mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    gpio_set_level(IN1, 0);
+    gpio_set_level(IN2, 0);
+}
+
+/**
+ * @brief motor 2 stop
+ */
+static void motor2_stop(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num)
+{
+    //mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
+    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
+    gpio_set_level(IN3, 0);
+    gpio_set_level(IN4, 0);
+}
+
+/**
+ * @brief Configure MCPWM module for brushed dc motor
+ */
+static void mcpwm_example_brushed_motor_control(void *arg)
+{
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm...\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 10000;    //frequency = 10kHz,
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure 
+PWM0A & PWM0B with above settings
+}
+
+
+void app_main(void)
+{
+    //set all control pins as outputs
+    gpio_set_direction(IN1, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN2, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN3, GPIO_MODE_OUTPUT);
+    gpio_set_direction(IN4, GPIO_MODE_OUTPUT);
+
+    printf("Testing brushed motor...\n");
+
+    //1. mcpwm gpio initialization
+    mcpwm_example_gpio_initialize();
+
+    //2. initial mcpwm configuration
+    printf("Configuring Initial Parameters of mcpwm...\n");
+    mcpwm_config_t pwm_config;
+    pwm_config.frequency = 10000;    //frequency = 10kHz,
+    pwm_config.cmpr_a = 0;    //duty cycle of PWMxA = 0
+    pwm_config.cmpr_b = 0;    //duty cycle of PWMxb = 0
+    pwm_config.counter_mode = MCPWM_UP_COUNTER;
+    pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);    //Configure 
+PWM0A & PWM0B with above settings
+
+    duty = 30.0;
+    while (duty < 50.0)
+    {
+        //motor 1 movement
+        printf("Motor 1 Forward\n");
+        motor1_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, duty);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        printf("Motor 1 Stop\n");
+        motor1_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        printf("Motor 1 Backward\n");
+        motor1_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, duty);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        printf("Motor 1 Stop\n");
+        motor1_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+
+        //motor 2 movement
+        printf("Motor 2 Forward\n");
+        motor2_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, duty);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        printf("Motor 2 Stop\n");
+        motor2_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        printf("Motor 2 Backward\n");
+        motor2_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, duty);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        printf("Motor 2 Stop\n");
+        motor2_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+
+        //increase duty cycle and go thru loop again
+        duty += 10.0;
+        printf("New duty cycle is %.1f\n", duty);
+    }
+    //end of test code
+    printf("Loop is over\n");
+}

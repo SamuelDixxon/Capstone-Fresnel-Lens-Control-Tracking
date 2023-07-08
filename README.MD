@@ -7,6 +7,7 @@ for a fresnel lens to track the sun. In the broader scope, this lens focussing e
 utilized in a larger thermo-chemical conntrol system where energy can be captured from the sun 
 and stored for future use.
 
+<!-- 
 ## File structure and description
 
 ```
@@ -15,7 +16,7 @@ and stored for future use.
 Any advise for common problems or issues.
 
 command to run if program contains helper info
-```
+``` -->
 
 ## Authors
 
@@ -27,21 +28,17 @@ Contributors names and contact info
 
 * 1.0 (4/26/2023)
     * Project major revision 1 with two programs for controlling the motors found here
-    *    [Automatic Control]()
     *    [Manual Control]()
+    *    [Automatic Control]()
 
 
 ## Resources utilized
 
 Design Related Documents
 * Magnetometer datasheet and resources
-*     [Datasheet](https://www.espruino.com/files/MMC5603NJ.pdf)
-*     
+   * [Datasheet](https://www.espruino.com/files/MMC5603NJ.pdf)
 * Accelerometer datahseet and resources
-*     [Datasheet](https://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf)
-* 
-
-
+   * [Datasheet](https://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf
 
 Code
 * ESP-IDF HTTP Requests (Firebase)
